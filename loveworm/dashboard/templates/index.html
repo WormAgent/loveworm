@@ -1,0 +1,525 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Loveworm</title>
+<style>
+  :root {
+    --bg: #f6f5f3; --panel: #ffffff; --text: #1d1b19; --muted: #6f6a64; --line: #e6e2dd;
+    --accent: #e8445a; --accent-ink: #ffffff; --ok: #1f8a4c; --warn: #b7791f; --chip: #f1eeea;
+    --bubble-me: #e8445a; --bubble-me-ink: #ffffff; --bubble-them: #f1eeea;
+    --hot: #1f8a4c; --warm: #b7791f; --cold: #6f6a64; --shade: rgba(0, 0, 0, .55);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141312; --panel: #1d1c1a; --text: #f1eeea; --muted: #a29c95; --line: #2e2c29;
+      --accent: #ff5a70; --chip: #2a2825; --bubble-them: #2a2825;
+      --hot: #3fbf75; --warm: #e0a43a; --cold: #a29c95;
+    }
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { display: flex; align-items: center; gap: 12px; padding: 14px 20px; border-bottom: 1px solid var(--line); background: var(--panel); position: sticky; top: 0; z-index: 3; }
+  header h1 { font-size: 18px; margin: 0; letter-spacing: -.01em; }
+  .pill { padding: 3px 10px; border-radius: 99px; background: var(--chip); color: var(--muted); font-size: 12px; font-weight: 600; }
+  .pill.on { background: color-mix(in srgb, var(--ok) 15%, transparent); color: var(--ok); }
+  .pill.busy { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
+  .spacer { flex: 1; }
+  .icon-btn { width: 36px; height: 36px; padding: 0; display: grid; place-items: center; border-radius: 50%; }
+  .icon-btn svg { width: 19px; height: 19px; }
+  main { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 16px; padding: 16px 20px; max-width: 1800px; margin: 0 auto; align-items: start; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; padding: 12px 16px; } }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+  .panel h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 12px; }
+  aside { display: flex; flex-direction: column; gap: 16px; position: sticky; top: 70px; }
+  @media (max-width: 900px) { aside { position: static; } }
+  button { font: inherit; border: 1px solid var(--line); background: var(--panel); color: var(--text); padding: 7px 12px; border-radius: 8px; cursor: pointer; }
+  button:hover { border-color: var(--muted); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+  button:disabled { opacity: .5; cursor: default; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 3px; }
+  input, textarea, select { font: inherit; width: 100%; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); }
+  textarea { resize: vertical; }
+  .fields { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; }
+  .stats b { display: block; font-size: 20px; }
+  .stats span { font-size: 12px; color: var(--muted); }
+  .log { font: 12px/1.5 ui-monospace, Consolas, monospace; color: var(--muted); max-height: 260px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
+  .tabs { display: flex; gap: 4px; margin-bottom: 14px; align-items: center; flex-wrap: wrap; }
+  .tab { border: none; background: none; padding: 8px 12px; font-weight: 600; color: var(--muted); border-radius: 8px; }
+  .tab.active { background: var(--chip); color: var(--text); }
+  .tab .n { font-weight: 500; margin-left: 4px; }
+  .search { max-width: 220px; margin-left: auto; }
+  .muted { color: var(--muted); }
+  .empty { padding: 40px; text-align: center; color: var(--muted); grid-column: 1 / -1; }
+  .start-here { padding: 40px; text-align: center; }
+  .start-here h2 { font-size: 18px; text-transform: none; letter-spacing: 0; color: var(--text); }
+  .start-here p { color: var(--muted); max-width: 460px; margin: 0 auto; }
+  .notice { font-size: 13px; background: color-mix(in srgb, var(--warn) 14%, transparent); color: var(--warn); border-radius: 8px; padding: 8px 12px; margin-bottom: 12px; display: flex; gap: 8px; align-items: center; }
+  .notice button { margin-left: auto; padding: 4px 10px; font-size: 12px; }
+
+  .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+  @media (max-width: 420px) { .gallery { grid-template-columns: 1fr; } }
+  .card { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--panel); display: flex; flex-direction: column; }
+  .photo { position: relative; aspect-ratio: 4 / 5; background: var(--chip); }
+  .photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .photo .none { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 13px; }
+  .nav { position: absolute; top: 50%; transform: translateY(-50%); width: 34px; height: 34px; border-radius: 50%; border: none; padding: 0;
+         background: var(--shade); color: #fff; font-size: 20px; line-height: 34px; text-align: center; opacity: .85; }
+  .nav:hover { opacity: 1; }
+  .nav.prev { left: 8px; } .nav.next { right: 8px; }
+  .dots { position: absolute; top: 8px; left: 8px; right: 8px; display: flex; gap: 3px; }
+  .dots span { flex: 1; height: 3px; border-radius: 2px; background: rgba(255, 255, 255, .4); }
+  .dots span.on { background: #fff; }
+  .badge { position: absolute; left: 10px; bottom: 10px; display: flex; align-items: center; gap: 6px; padding: 4px 10px 4px 4px; border-radius: 99px;
+           background: var(--shade); color: #fff; font-size: 12px; font-weight: 600; max-width: calc(100% - 20px); }
+  .badge .score { min-width: 28px; height: 22px; padding: 0 6px; border-radius: 99px; display: grid; place-items: center; font-weight: 800; color: #fff; }
+  .badge .label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .score.hot { background: var(--hot); } .score.warm { background: var(--warm); } .score.cold { background: #77706a; } .score.zero, .score.pend { background: #4a4541; }
+  .turn { position: absolute; right: 10px; bottom: 10px; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 99px; white-space: nowrap; background: var(--accent); color: #fff; }
+  .card .body { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+  .card .name { font-weight: 700; font-size: 16px; }
+  .card .meta { font-size: 12px; color: var(--muted); }
+  .card .txt { font-size: 13px; }
+  .card .txt b { font-weight: 600; }
+  .card .pending { font-size: 13px; color: var(--muted); font-style: italic; }
+  .actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: auto; padding-top: 4px; }
+  .actions button { padding: 5px 10px; font-size: 13px; }
+  .draft { border: 1px dashed var(--accent); border-radius: 10px; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+  .draft .lbl { font-size: 11px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: .05em; }
+  .draft textarea { min-height: 64px; }
+  .draft .row button { padding: 5px 10px; font-size: 13px; }
+
+  dialog { border: 1px solid var(--line); border-radius: 14px; background: var(--panel); color: var(--text); padding: 0; width: min(560px, calc(100vw - 32px)); max-height: calc(100vh - 48px); }
+  dialog::backdrop { background: rgba(0, 0, 0, .5); }
+  .dlg-head { display: flex; align-items: center; gap: 8px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+  .dlg-head h3 { margin: 0; font-size: 16px; }
+  .dlg-head button { margin-left: auto; }
+  .dlg-body { padding: 16px; overflow: auto; max-height: calc(100vh - 170px); display: flex; flex-direction: column; gap: 12px; }
+  .dlg-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--line); }
+  .thread { display: flex; flex-direction: column; gap: 4px; }
+  .msg { max-width: 82%; padding: 6px 10px; border-radius: 12px; background: var(--bubble-them); white-space: pre-wrap; word-break: break-word; }
+  .msg.me { align-self: flex-end; background: var(--bubble-me); color: var(--bubble-me-ink); }
+  .msg time { display: block; font-size: 10px; opacity: .7; margin-top: 2px; }
+  .toast { position: fixed; right: 20px; bottom: 20px; z-index: 5; width: 280px; padding: 12px 14px; border-radius: 12px;
+           background: var(--panel); border: 1px solid var(--line); box-shadow: 0 8px 28px rgba(0, 0, 0, .25);
+           transition: opacity .3s, transform .3s; }
+  .toast.hide { opacity: 0; transform: translateY(12px); pointer-events: none; }
+  .toast .t-head { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 13px; }
+  .toast .t-head span:last-child { margin-left: auto; color: var(--muted); font-weight: 500; }
+  .toast .bar { height: 4px; border-radius: 2px; background: var(--chip); margin-top: 9px; overflow: hidden; }
+  .toast .bar div { height: 100%; background: var(--accent); width: 0; transition: width .4s; }
+  .spinner { width: 13px; height: 13px; border-radius: 50%; border: 2px solid var(--chip); border-top-color: var(--accent); animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (max-width: 420px) { .toast { left: 16px; right: 16px; width: auto; } }
+  .ig-status { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
+  .dot.on { background: var(--ok); }
+  .ig-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 99px;
+             background: color-mix(in srgb, #c13584 16%, transparent); color: #d4589f; text-decoration: none; width: fit-content; }
+  .ig-chip:hover { text-decoration: underline; }
+  .chat-tabs { display: flex; gap: 4px; padding: 10px 16px 0; }
+  .check { display: flex; gap: 8px; align-items: flex-start; }
+  .check input { width: auto; margin-top: 3px; }
+  .help { font-size: 12px; color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Loveworm</h1>
+  <span id="status" class="pill">apagado</span>
+  <span id="auto" class="pill" hidden>borradores automáticos</span>
+  <span class="spacer"></span>
+  <span id="refreshed" class="muted" style="font-size:12px"></span>
+  <button class="icon-btn" id="btn-settings" title="Configuración" aria-label="Configuración">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+  </button>
+</header>
+
+<main>
+  <aside>
+    <section class="panel">
+      <h2>Bot</h2>
+      <div class="row" style="margin-bottom:12px">
+        <button class="primary" id="btn-start">Iniciar</button>
+        <button id="btn-refresh">Actualizar chats</button>
+        <button id="btn-close">Cerrar navegador</button>
+      </div>
+      <div class="fields">
+        <div><label for="amount">Likes</label><input id="amount" type="number" min="1" max="500" value="10"></div>
+        <div><label for="ratio">Ratio %</label><input id="ratio" type="number" min="0" max="100" step="0.5" value="72.5"></div>
+        <div><label for="sleep">Sleep s</label><input id="sleep" type="number" min="1" max="60" step="0.5" value="5"></div>
+      </div>
+      <div class="row">
+        <button class="primary" id="btn-swipe">Swipear</button>
+        <button id="btn-stop">Detener</button>
+      </div>
+    </section>
+
+    <section class="panel" id="ig-panel" hidden>
+      <h2>Instagram</h2>
+      <div class="ig-status"><span class="dot" id="ig-dot"></span><span id="ig-text">No conectado</span></div>
+      <button id="btn-ig" style="margin-top:10px">Conectar Instagram</button>
+      <div class="help" style="margin-top:8px">Solo lectura. Se vinculan los chats de Instagram de las personas que te pasaron su @ por Tinder.</div>
+    </section>
+
+    <section class="panel">
+      <h2>Sesión</h2>
+      <div class="stats">
+        <div><b id="st-like">0</b><span>likes</span></div>
+        <div><b id="st-dislike">0</b><span>dislikes</span></div>
+        <div><b id="st-duration">—</b><span>minutos</span></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Log</h2>
+      <div class="log" id="log"></div>
+    </section>
+  </aside>
+
+  <section class="panel start-here" id="empty-state" hidden>
+    <h2>Todavía no hay chats</h2>
+    <p>Tocá <b>Iniciar</b> para abrir el navegador y traer tus chats y matches de Tinder.
+       Si no estás logueado, iniciá sesión en el Chrome que se abre (Log in → Google).</p>
+  </section>
+
+  <section id="content">
+    <div class="tabs">
+      <button class="tab active" data-tab="people">Galería<span class="n" id="n-people"></span></button>
+      <button class="tab" data-tab="new">Matches nuevos<span class="n" id="n-new"></span></button>
+      <input class="search" id="search" placeholder="Buscar por nombre">
+    </div>
+    <div class="notice" id="paused" hidden>
+      Claude está pausado porque llegó al límite de uso de tu suscripción.
+      <button id="btn-resume">Reanudar</button>
+    </div>
+    <div id="view-people" class="gallery"></div>
+    <div id="view-new" class="gallery" hidden></div>
+  </section>
+</main>
+
+<div class="toast hide" id="toast" role="status" aria-live="polite">
+  <div class="t-head"><span class="spinner"></span><span>Cargando análisis</span><span id="toast-count"></span></div>
+  <div class="bar"><div id="toast-bar"></div></div>
+</div>
+
+<dialog id="chat-dlg">
+  <div class="dlg-head"><h3 id="chat-title"></h3><button id="chat-close">Cerrar</button></div>
+  <div class="chat-tabs" id="chat-tabs" hidden>
+    <button class="tab active" data-chat="tinder">Tinder</button>
+    <button class="tab" data-chat="instagram">Instagram</button>
+  </div>
+  <div class="dlg-body"><div class="thread" id="chat-thread"></div></div>
+</dialog>
+
+<dialog id="settings-dlg">
+  <div class="dlg-head"><h3>Configuración</h3></div>
+  <div class="dlg-body">
+    <div>
+      <label for="set-instructions">Instrucciones para Claude</label>
+      <textarea id="set-instructions" rows="7"></textarea>
+      <div class="help">Cómo escribir los mensajes: tono, qué buscar, qué evitar.</div>
+    </div>
+    <div>
+      <label for="set-model">Modelo</label>
+      <select id="set-model"></select>
+      <div class="help">Se usa para analizar a cada persona y escribir borradores. Haiku es el que menos gasta.</div>
+    </div>
+    <label class="check"><input type="checkbox" id="set-auto">
+      <span>
+        <b style="color:var(--text)">Borradores automáticos</b><br>
+        Claude arma el primer mensaje para cada match nuevo (a partir de que lo activás) y la respuesta en los chats
+        que empezaste desde acá. Nunca envía nada: cada mensaje sale solo cuando tocás <b>Enviar</b>.
+      </span>
+    </label>
+  </div>
+  <div class="dlg-foot"><button id="set-cancel">Cancelar</button><button class="primary" id="set-save">Guardar</button></div>
+</dialog>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let lastState = null;
+let lastRendered = "";
+const photoIndex = new Map();
+const edits = new Map();
+
+function el(tag, attrs = {}, ...children) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") node.className = v;
+    else if (k.startsWith("on")) node.addEventListener(k.slice(2), v);
+    else node.setAttribute(k, v);
+  }
+  for (const c of children) if (c != null) node.append(c);
+  return node;
+}
+
+function ago(iso) {
+  if (!iso) return "";
+  const min = Math.round((Date.now() - new Date(iso)) / 60000);
+  if (min < 60) return `hace ${Math.max(min, 1)} min`;
+  if (min < 1440) return `hace ${Math.round(min / 60)} h`;
+  return `hace ${Math.round(min / 1440)} d`;
+}
+
+async function post(path, body) {
+  const res = await fetch(path, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body || {})});
+  if (!res.ok) alert((await res.json().catch(() => ({}))).error || "Error");
+  lastRendered = "";
+  poll();
+}
+
+const title = (p) => p.name + (p.age ? `, ${p.age}` : "");
+const safePhotos = (p) => (p.photos || []).filter(u => typeof u === "string" && u.startsWith("https://"));
+
+function carousel(p, overlay) {
+  const photos = safePhotos(p);
+  const box = el("div", {class: "photo"});
+  if (!photos.length) {
+    box.append(el("div", {class: "none"}, "Sin fotos (tocá «Actualizar chats»)"), ...overlay);
+    return box;
+  }
+  let i = Math.min(photoIndex.get(p.id) || 0, photos.length - 1);
+  const img = el("img", {src: photos[i], alt: `Foto de ${p.name}`, loading: "lazy", referrerpolicy: "no-referrer"});
+  const dots = el("div", {class: "dots"}, ...photos.map((_, k) => el("span", {class: k === i ? "on" : ""})));
+  const go = (step) => (ev) => {
+    ev.stopPropagation();
+    i = (i + step + photos.length) % photos.length;
+    photoIndex.set(p.id, i);
+    img.src = photos[i];
+    [...dots.children].forEach((d, k) => d.className = k === i ? "on" : "");
+  };
+  box.append(img);
+  if (photos.length > 1) {
+    box.append(dots,
+      el("button", {class: "nav prev", "aria-label": "Foto anterior", onclick: go(-1)}, "‹"),
+      el("button", {class: "nav next", "aria-label": "Foto siguiente", onclick: go(1)}, "›"));
+  }
+  box.append(...overlay);
+  return box;
+}
+
+function interestBadge(p) {
+  const a = p.analysis;
+  if (p.analysis_status !== "ok" || !a) {
+    const label = {error: "Error al analizar", analizando: "Analizando"}[p.analysis_status] || "En cola";
+    return el("div", {class: "badge"}, el("span", {class: "score pend"}, "…"), el("span", {class: "label"}, label));
+  }
+  const tier = a.interes >= 75 ? "hot" : a.interes >= 45 ? "warm" : a.interes > 0 ? "cold" : "zero";
+  return el("div", {class: "badge", title: `Interés ${a.interes}/100`}, el("span", {class: "score " + tier}, String(a.interes)), el("span", {class: "label"}, a.senal));
+}
+
+function draftBox(p, firstMessage) {
+  if (p.draft) {
+    const ta = el("textarea", {});
+    ta.value = edits.has(p.id) ? edits.get(p.id) : p.draft;
+    ta.addEventListener("input", () => edits.set(p.id, ta.value));
+    return el("div", {class: "draft"},
+      el("div", {class: "lbl"}, firstMessage ? "Primer mensaje sugerido" : "Respuesta sugerida"),
+      ta,
+      el("div", {class: "row"},
+        el("button", {class: "primary", onclick: () => {
+          const text = ta.value.trim();
+          if (!text) return;
+          if (!confirm(`¿Enviar este mensaje a ${p.name}?\n\n${text}`)) return;
+          edits.delete(p.id);
+          post("/api/send", {match_id: p.id, text});
+        }}, "Enviar"),
+        el("button", {onclick: () => { edits.delete(p.id); post(`/api/drafts/${p.id}/generate`); }}, "Otro"),
+        el("button", {onclick: () => { edits.delete(p.id); post(`/api/drafts/${p.id}/discard`); }}, "Descartar")));
+  }
+  if (p.draft_pending) return el("div", {class: "pending"}, "Claude está escribiendo un mensaje…");
+  if (p.draft_error) return el("div", {class: "pending"}, "No se pudo escribir el mensaje: " + p.draft_error);
+  return null;
+}
+
+async function openChat(p) {
+  $("chat-title").textContent = title(p);
+  const thread = $("chat-thread");
+  thread.replaceChildren(el("div", {class: "muted"}, "Cargando…"));
+  $("chat-dlg").showModal();
+  const data = await (await fetch(`/api/chat/${encodeURIComponent(p.id)}`)).json();
+  const show = (site) => {
+    const msgs = site === "instagram" ? data.instagram.messages : data.messages;
+    document.querySelectorAll("#chat-tabs .tab").forEach(t => t.classList.toggle("active", t.dataset.chat === site));
+    thread.replaceChildren(...(msgs.length ? msgs.map(m =>
+      el("div", {class: "msg" + (m.from_me ? " me" : "")}, m.text, el("time", {}, m.sent ? new Date(m.sent).toLocaleString("es-AR") : "")))
+      : [el("div", {class: "muted"}, "No hay mensajes guardados.")]));
+    thread.parentElement.scrollTop = thread.parentElement.scrollHeight;
+  };
+  $("chat-tabs").hidden = !data.instagram.messages.length;
+  document.querySelectorAll("#chat-tabs .tab").forEach(t => t.onclick = () => show(t.dataset.chat));
+  show("tinder");
+}
+
+function igChip(p) {
+  if (!p.instagram) return null;
+  const user = p.instagram.username;
+  return el("a", {class: "ig-chip", href: `https://www.instagram.com/${encodeURIComponent(user)}/`, target: "_blank", rel: "noopener"},
+    `@${user}`, p.instagram.message_count ? ` · ${p.instagram.message_count} mensajes en IG` : "");
+}
+
+const openInTinder = (id) => el("a", {href: `https://tinder.com/app/messages/${id}`, target: "_blank", rel: "noopener"}, el("button", {}, "Abrir en Tinder"));
+
+function personCard(p) {
+  const a = p.analysis_status === "ok" ? p.analysis : null;
+  const overlay = [interestBadge(p)];
+  if (p.last_from_me === false) overlay.push(el("span", {class: "turn"}, "Te toca"));
+
+  let about;
+  if (a) {
+    about = [el("div", {class: "txt"}, a.perfil || p.bio || ""),
+             el("div", {class: "txt"}, el("b", {}, "En el chat: "), a.charla)];
+  } else if (p.analysis_status === "error") {
+    about = [el("div", {class: "pending"}, "No se pudo analizar: " + (p.analysis_error || ""))];
+  } else if (p.analysis_status === "analizando") {
+    about = [el("div", {class: "pending"}, "Claude está analizando a esta persona…")];
+  } else {
+    about = [el("div", {class: "pending"}, lastState && lastState.llm_paused
+      ? "En cola: Claude está pausado por el límite de uso."
+      : "En cola para que Claude la analice.")];
+  }
+
+  return el("article", {class: "card"},
+    carousel(p, overlay),
+    el("div", {class: "body"},
+      el("div", {}, el("div", {class: "name"}, title(p)),
+        el("div", {class: "meta"}, `${p.message_count} mensajes · último ${ago(p.last_sent)}`)),
+      igChip(p),
+      ...about,
+      draftBox(p, false),
+      el("div", {class: "actions"},
+        el("button", {onclick: () => openChat(p)}, "Ver chat"),
+        !p.draft && !p.draft_pending ? el("button", {onclick: () => post(`/api/drafts/${p.id}/generate`)}, "Sugerir respuesta") : null,
+        el("button", {onclick: () => post(`/api/reanalyze/${p.id}`)}, "Reanalizar"),
+        openInTinder(p.id))));
+}
+
+function newMatchCard(p) {
+  return el("article", {class: "card"},
+    carousel(p, []),
+    el("div", {class: "body"},
+      el("div", {}, el("div", {class: "name"}, title(p)), el("div", {class: "meta"}, "match " + ago(p.matched))),
+      p.bio ? el("div", {class: "txt"}, p.bio) : el("div", {class: "pending"}, "Sin bio"),
+      draftBox(p, true),
+      el("div", {class: "actions"},
+        !p.draft && !p.draft_pending ? el("button", {onclick: () => post(`/api/drafts/${p.id}/generate`)}, "Sugerir primer mensaje") : null,
+        openInTinder(p.id))));
+}
+
+function renderGallery(view, list, card, emptyText) {
+  view.replaceChildren(...(list.length ? list.map(card) : [el("div", {class: "empty"}, emptyText)]));
+}
+
+function render(s) {
+  if (!s) return;
+  const busy = s.job && s.job !== "start" || s.status === "esperando login" || s.status === "abriendo navegador";
+  $("status").textContent = s.status + (s.progress ? ` ${s.progress}` : "") + (s.pending_jobs ? ` (+${s.pending_jobs})` : "");
+  $("status").className = "pill " + (s.status === "apagado" ? "" : busy ? "busy" : "on");
+  $("auto").hidden = !s.auto_drafts;
+  const on = s.status !== "apagado";
+  $("btn-start").disabled = on;
+  $("btn-refresh").disabled = !on;
+  $("btn-close").disabled = !on;
+  $("btn-swipe").disabled = !on;
+  $("btn-stop").disabled = s.status !== "swipeando";
+  $("refreshed").textContent = s.last_refresh ? "Chats: " + ago(s.last_refresh) : "";
+  $("ig-panel").hidden = !s.instagram_enabled;
+  $("ig-dot").className = "dot" + (s.instagram ? " on" : "");
+  $("ig-text").textContent = s.instagram
+    ? `Conectado · ${s.people.filter(p => p.instagram).length} personas vinculadas`
+    : (s.status === "esperando login de Instagram" ? "Esperando que inicies sesión…" : "No conectado");
+  $("btn-ig").textContent = s.instagram ? "Actualizar Instagram" : "Conectar Instagram";
+  $("btn-ig").disabled = !on || s.status === "esperando login de Instagram";
+
+  const st = s.stats || {};
+  $("st-like").textContent = st.like ?? 0;
+  $("st-dislike").textContent = st.dislike ?? 0;
+  $("st-duration").textContent = st.duration ? Math.round(st.duration / 60) : "—";
+
+  const log = $("log");
+  const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 20;
+  log.textContent = s.logs.join("\n");
+  if (atBottom) log.scrollTop = log.scrollHeight;
+
+  // floating progress while claude works through the queue; hides when done or paused
+  const done = s.people.filter(p => p.analysis_status === "ok" || p.analysis_status === "error").length;
+  const loading = done < s.people.length && !s.llm_paused;
+  $("toast").classList.toggle("hide", !loading);
+  if (loading) {
+    $("toast-count").textContent = `${done}/${s.people.length}`;
+    $("toast-bar").style.width = `${Math.round(done / s.people.length * 100)}%`;
+  }
+
+  // nothing stored yet: only point at the start button
+  const nothing = !s.people.length && !s.new.length && s.status !== "actualizando chats";
+  $("empty-state").hidden = !nothing;
+  $("content").hidden = nothing;
+
+  $("n-people").textContent = s.people.length;
+  $("n-new").textContent = s.new.length;
+  $("paused").hidden = !s.llm_paused;
+
+  const q = $("search").value.trim().toLowerCase();
+  const filter = (x) => !q || x.name.toLowerCase().includes(q);
+  const people = s.people.filter(filter), fresh = s.new.filter(filter);
+
+  // rebuild the cards only when something changed, and never while a draft is being edited
+  const key = JSON.stringify([people, fresh]);
+  const editing = document.activeElement && document.activeElement.closest && document.activeElement.closest(".draft");
+  if (key === lastRendered || editing) return;
+  lastRendered = key;
+  renderGallery($("view-people"), people, personCard,
+    s.status === "actualizando chats" ? "Cargando chats…" : "No hay chats. Iniciá el bot y tocá «Actualizar chats».");
+  renderGallery($("view-new"), fresh, newMatchCard, "No hay matches sin chat.");
+}
+
+async function poll() {
+  try {
+    lastState = await (await fetch("/api/state")).json();
+    render(lastState);
+  } catch (e) {
+    $("status").textContent = "sin conexión";
+    $("status").className = "pill";
+  }
+}
+
+async function openSettings() {
+  const s = await (await fetch("/api/settings")).json();
+  $("set-instructions").value = s.instructions;
+  $("set-model").replaceChildren(...s.models.map(m => el("option", {value: m}, m)));
+  $("set-model").value = s.model;
+  $("set-auto").checked = s.auto_drafts;
+  $("settings-dlg").showModal();
+}
+
+document.querySelectorAll(".tab").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t === b));
+  $("view-people").hidden = b.dataset.tab !== "people";
+  $("view-new").hidden = b.dataset.tab !== "new";
+}));
+$("search").addEventListener("input", () => render(lastState));
+$("btn-start").onclick = () => post("/api/start");
+$("btn-refresh").onclick = () => post("/api/refresh");
+$("btn-close").onclick = () => post("/api/close");
+$("btn-stop").onclick = () => post("/api/stop");
+$("btn-resume").onclick = () => post("/api/llm/resume");
+$("btn-swipe").onclick = () => post("/api/swipe", {amount: $("amount").value, ratio: $("ratio").value, sleep: $("sleep").value});
+$("btn-settings").onclick = openSettings;
+$("btn-ig").onclick = () => post("/api/instagram/connect");
+$("chat-close").onclick = () => $("chat-dlg").close();
+$("set-cancel").onclick = () => $("settings-dlg").close();
+$("set-save").onclick = async () => {
+  await post("/api/settings", {instructions: $("set-instructions").value, model: $("set-model").value, auto_drafts: $("set-auto").checked});
+  $("settings-dlg").close();
+};
+
+poll();
+setInterval(poll, 2500);
+</script>
+</body>
+</html>
