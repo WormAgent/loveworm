@@ -99,6 +99,26 @@ def reanalyze(match_id):
     return jsonify(ok=True)
 
 
+# --- cupos: las 5 conversaciones en juego ---
+
+@app.post("/api/cupos/<match_id>/fijar")
+def fijar_cupo(match_id):
+    bot.fijar_cupo(match_id)
+    return jsonify(ok=True)
+
+
+@app.post("/api/cupos/<match_id>/soltar")
+def soltar_cupo(match_id):
+    bot.soltar_cupo(match_id)
+    return jsonify(ok=True)
+
+
+@app.post("/api/cupos/<match_id>/liberar")
+def liberar_cupo(match_id):
+    bot.liberar_cupo(match_id)
+    return jsonify(ok=True)
+
+
 @app.post("/api/llm/resume")
 def resume_llm():
     bot.resume_llm()
@@ -116,7 +136,9 @@ def save_settings():
     try:
         bot.update_settings(instructions=str(body.get("instructions", "")),
                             model=str(body.get("model", "haiku")),
-                            auto_drafts=bool(body.get("auto_drafts", False)))
+                            auto_drafts=bool(body.get("auto_drafts", False)),
+                            # la interfaz vieja no manda auto_send: si no viene, se conserva
+                            auto_send=bool(body["auto_send"]) if "auto_send" in body else None)
     except ValueError as e:
         return jsonify(ok=False, error=str(e)), 400
     return jsonify(ok=True)
@@ -143,7 +165,7 @@ def _close_leftover_chrome():
 def _port_free(port):
     # windows lets two sockets share a port unless the bind is exclusive
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
+        if hasattr(s, "SO_EXCLUSIVEADDRUSE"):
             s.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
         try:
             s.bind(("127.0.0.1", port))

@@ -1,6 +1,7 @@
 """Bot worker: owns the single Chrome session and runs every browser job on one thread."""
 import json
 import queue
+import random
 import threading
 import time
 import traceback
@@ -9,23 +10,28 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timezone
 from pathlib import Path
 
+from loveworm.helpers import citas
+from loveworm.helpers.cupos import Cupos
 from loveworm.helpers.instagram_web import InstagramWeb, extract_handles
 from loveworm.helpers.llm import LLMError, analyze_person, draft_message
 from loveworm.helpers.tinder_api import TinderApi
 
 # bump when the analysis schema changes so every person gets re-analyzed
-ANALYSIS_VERSION = "persona-v1"
+ANALYSIS_VERSION = "persona-v2"
 
 DEFAULT_SETTINGS = {
     "instructions": (
         "Escribí corto y natural, en español rioplatense, como en un chat de verdad. "
         "Nada de frases armadas, piropos genéricos ni muchos emojis. En el primer mensaje, "
         "comentá algo concreto de su bio; si no tiene bio, un saludo simple con una pregunta. "
-        "Si la charla viene bien, proponé seguirla por Instagram o tomar algo."
+        "Sos poco empujador: proponé salir recién cuando haya ida y vuelta real, una sola vez "
+        "y con un día concreto."
     ),
     "model": "haiku",
     # when on, claude drafts openers for matches created after drafts_since and replies for chats it opened
     "auto_drafts": False,
+    # when on, the bot sends the draft by itself instead of waiting for the Enviar click
+    "auto_send": False,
     "drafts_since": None,
     # set once the instagram tab logged in; refreshes then also read instagram
     "instagram": False,
@@ -39,6 +45,18 @@ INSTAGRAM_ENABLED = False
 # instagram is read profile by profile on screen, so keep each run short
 IG_MAX_PER_RUN = 30
 IG_REREAD_SECONDS = 24 * 3600
+
+# pausa antes de mandar solo, para no disparar en el mismo segundo en que claude terminó
+PAUSA_ENVIO = (8, 30)
+# techo de envíos automáticos por día, para que el bot no se suelte
+AUTO_SEND_MAX_DIA = 12
+
+
+def _error_de_sesion(msg):
+    """Límite de uso o sesión de Claude vencida: conviene pausar todo en vez de marcar error
+    en cada chat, que es lo que pasaría si cada llamada falla por su cuenta."""
+    bajo = (msg or "").lower()
+    return any(p in bajo for p in ("limit", "authenticate", "oauth", "session expired", "login required"))
 
 
 def _age(birth_date):
@@ -68,6 +86,11 @@ def _chat_key(entry):
     return key + (f"|ig{len(ig)}|{ig[-1]['text'][:40]}" if ig else "")
 
 
+def _draft_key(entry):
+    """Un borrador viejo no sirve si llegaron mensajes nuevos o cambió el estado de la cita."""
+    return _chat_key(entry) + "|" + citas.leer(entry)["estado"]
+
+
 def _ig_messages(entry):
     return (entry.get("instagram") or {}).get("messages") or []
 
@@ -84,8 +107,12 @@ class Bot:
         self.cache_path = self.root / "data" / "dashboard_cache.json"
         self.lists_path = self.root / "data" / "dashboard_lists.json"
         self.settings_path = self.root / "data" / "dashboard_settings.json"
+        self.envios_path = self.root / "data" / "envios.json"
         self.cache = self._load_cache()
         self.settings = self._load_settings()
+        self.envios = self._load_envios()
+        # la política que mantiene 5 conversaciones vivas y rota al que no contesta
+        self.cupos = Cupos(self.root / "data" / "cupos.json")
 
         self.lock = threading.Lock()
         self.jobs = queue.Queue()
@@ -144,8 +171,25 @@ class Bot:
             if entry:
                 entry.pop("draft", None)
                 entry.pop("draft_requested", None)
-                entry["draft_dismissed"] = _chat_key(entry)
+                entry["draft_dismissed"] = _draft_key(entry)
         self._save_cache()
+
+    def fijar_cupo(self, match_id):
+        """Le guarda el cupo aunque deje de responder."""
+        self.cupos.fijar(match_id)
+        self.log(f"Cupo fijado: {self.cache.get(match_id, {}).get('name', '?')}.")
+        self._schedule_llm()
+
+    def soltar_cupo(self, match_id):
+        self.cupos.soltar(match_id)
+        self._revisar_cupos()
+        self._schedule_llm()
+
+    def liberar_cupo(self, match_id):
+        """La devuelve al pool, como si nunca hubiera estado activa."""
+        self.cupos.liberar(match_id)
+        self._revisar_cupos()
+        self._schedule_llm()
 
     def resume_llm(self):
         self.llm_paused = False
@@ -159,7 +203,7 @@ class Bot:
     def get_settings(self):
         return dict(self.settings, models=MODELS)
 
-    def update_settings(self, instructions, model, auto_drafts):
+    def update_settings(self, instructions, model, auto_drafts, auto_send=None):
         if model not in MODELS:
             raise ValueError("Modelo inválido")
         if auto_drafts and not self.settings["auto_drafts"]:
@@ -167,6 +211,8 @@ class Bot:
             self.settings["drafts_since"] = _now_iso()
         self.settings.update(instructions=instructions.strip() or DEFAULT_SETTINGS["instructions"],
                              model=model, auto_drafts=auto_drafts)
+        if auto_send is not None:
+            self.settings["auto_send"] = bool(auto_send)
         self._save_settings()
         self.log("Configuración guardada.")
         self._schedule_llm()
@@ -187,6 +233,8 @@ class Bot:
             people = [dict(a, **self._llm_fields(a["id"])) for a in self.active]
             new = [dict(a, **self._llm_fields(a["id"])) for a in self.available]
             stats = dict(self.session.session_data) if self.session else None
+            agendas = citas.proximas(self.cache)
+            cupos = self.cupos.resumen(self.cache)
         people.sort(key=lambda p: (_interest(p), p["last_sent"] or ""), reverse=True)
         return {
             "status": self.status,
@@ -198,8 +246,13 @@ class Bot:
             "progress": self.progress,
             "llm_paused": self.llm_paused,
             "auto_drafts": self.settings["auto_drafts"],
+            "auto_send": self.settings["auto_send"],
             "instagram": INSTAGRAM_ENABLED and self.settings["instagram"],
             "instagram_enabled": INSTAGRAM_ENABLED,
+            "citas": agendas,
+            "cupos": cupos,
+            "envios_hoy": self._envios_hoy(),
+            "envios_tope": AUTO_SEND_MAX_DIA,
             "people": people,
             "new": new,
         }
@@ -336,7 +389,7 @@ class Bot:
 
                 entry.update(name=fields["name"], bio=fields["bio"], gender=fields["gender"], matched=fields["matched"])
                 # a draft written before new messages arrived no longer fits the chat
-                if entry.get("draft") and entry["draft"].get("for") != _chat_key(entry):
+                if entry.get("draft") and entry["draft"].get("for") != _draft_key(entry):
                     entry.pop("draft")
                 with self.lock:
                     self.cache[mid] = entry
@@ -363,9 +416,20 @@ class Bot:
         finally:
             self.status = "listo"
             self.progress = None
+
+        # la política decide quiénes quedan en juego antes de pedir borradores
+        self._revisar_cupos()
         self._schedule_llm()
         if INSTAGRAM_ENABLED and self.settings["instagram"]:
             self.jobs.put(("refresh_instagram", {}))
+
+    def _revisar_cupos(self):
+        resultado = self.cupos.revisar(self.cache)
+        for mid in resultado["rotadas"]:
+            self.log(f"Cupo liberado: {self.cache.get(mid, {}).get('name', '?')} "
+                     f"({self.cupos.rotadas[mid]['motivo']}).")
+        for mid in resultado["promovidas"]:
+            self.log(f"Cupo nuevo: {self.cache.get(mid, {}).get('name', '?')}.")
 
     def _job_connect_instagram(self):
         self._require_session()
@@ -434,8 +498,23 @@ class Bot:
             self.progress = None
         self._schedule_llm()
 
-    def _job_send(self, match_id, text):
+    def _job_send(self, match_id, text, auto=False):
         self._require_session()
+        with self.lock:
+            nombre = (self.cache.get(match_id) or {}).get("name", "?")
+
+        if auto:
+            # el borrador pudo quedar viejo mientras esperaba el turno en la cola
+            with self.lock:
+                actual = (self.cache.get(match_id, {}).get("draft") or {}).get("text")
+            if actual and actual != text:
+                self.log(f"Envío automático a {nombre} descartado: el borrador cambió.")
+                return
+            if self.cupos.estado(match_id) != "activa":
+                self.log(f"Envío automático a {nombre} descartado: le liberaron el cupo.")
+                return
+            time.sleep(random.uniform(*PAUSA_ENVIO))
+
         TinderApi(self._tab("tinder")).send_message(match_id, text)
         with self.lock:
             entry = self.cache.setdefault(match_id, {})
@@ -443,9 +522,11 @@ class Bot:
             entry.pop("draft_requested", None)
             # chats opened or answered from the dashboard keep getting reply drafts
             entry["managed"] = True
-            name = entry.get("name", "?")
+            entry["ultimo_envio_auto"] = auto
+        if auto:
+            self._registrar_envio(match_id, nombre, text)
         self._save_cache()
-        self.log(f"Mensaje enviado a {name}.")
+        self.log(f"Mensaje {'automático ' if auto else ''}enviado a {nombre}.")
         self.jobs.put(("refresh", {}))
 
     def _job_close(self):
@@ -477,25 +558,29 @@ class Bot:
             "analysis": analysis,
             "analysis_status": status,
             "analysis_error": entry.get("analysis_error"),
+            "cita": citas.leer(entry),
+            "cupo": self.cupos.estado(match_id),
             "draft": draft["text"] if draft else None,
             "draft_pending": bool(entry.get("draft_queued")),
             "draft_error": entry.get("draft_error"),
             "managed": entry.get("managed", False),
         }
 
-    def _wants_draft(self, entry):
+    def _wants_draft(self, mid, entry):
         msgs = entry.get("messages") or []
-        if entry.get("draft") or entry.get("draft_error") or entry.get("draft_dismissed") == _chat_key(entry):
+        if entry.get("draft") or entry.get("draft_error") or entry.get("draft_dismissed") == _draft_key(entry):
             return False
         if entry.get("draft_requested"):
-            return True
+            return True  # pedido a mano, no importa el cupo
+        if self.cupos.estado(mid) != "activa":
+            return False
         if not self.settings["auto_drafts"]:
             return False
         if not msgs:
             since = self.settings.get("drafts_since") or ""
             return (entry.get("matched") or "") >= since
-        # reply only in chats it opened, and only when they wrote last
-        return entry.get("managed", False) and not msgs[-1]["from_me"]
+        # contesta siempre que ella haya escrito último: los cupos ya acotan cuántos chats son
+        return not msgs[-1]["from_me"]
 
     def _schedule_llm(self):
         if self.llm_paused:
@@ -505,16 +590,20 @@ class Bot:
             for mid, e in self.cache.items():
                 msgs = e.get("messages") or []
                 key = f"{ANALYSIS_VERSION}|{_chat_key(e)}"
+                analizando = bool(e.get("analysis_queued") or e.get("analysis_running"))
                 if msgs and e.get("analysis_key") != key and not e.get("analysis_queued") and not e.get("analysis_error"):
                     if not any(not m["from_me"] for m in msgs + _ig_messages(e)):
                         # never answered: no need to ask claude
                         e["analysis"] = {"perfil": e.get("bio", ""), "charla": "No respondió ningún mensaje.",
                                          "interes": 0, "senal": "No respondió"}
                         e["analysis_key"] = key
+                        e["cita"] = citas.por_defecto(msgs)
                     else:
                         e["analysis_queued"] = True
+                        analizando = True
                         tasks.append((self._analyze, mid))
-                if self._wants_draft(e) and not e.get("draft_queued"):
+                # el borrador espera al análisis, así lo escribe con la cita ya actualizada
+                if self._wants_draft(mid, e) and not e.get("draft_queued") and not analizando:
                     e["draft_queued"] = True
                     tasks.append((self._draft, mid))
         for fn, mid in tasks:
@@ -532,11 +621,13 @@ class Bot:
                 entry[f"{kind}_running"] = True
             return fn()
         except LLMError as e:
-            if "limit" in str(e).lower():
-                # usage limit: leave it pending and stop the rest of the queue
+            if _error_de_sesion(str(e)):
+                # límite de uso o sesión vencida: queda pendiente y se frena toda la cola,
+                # en vez de marcar error en cada chat
                 if not self.llm_paused:
                     self.llm_paused = True
-                    self.log(f"Claude pausado, llegó al límite de uso: {e}")
+                    self.log(f"Claude pausado: {e}")
+                    self.log("Arreglá la sesión del CLI y tocá 'Reanudar'.")
             else:
                 with self.lock:
                     entry[f"{kind}_error"] = str(e)
@@ -554,25 +645,71 @@ class Bot:
                     list(_ig_messages(e)), _chat_key(e))
 
     def _analyze(self, match_id):
-        name, gender, bio, msgs, ig_msgs, key = self._snapshot(match_id)
-        result = self._call_llm(match_id, "analysis", lambda: analyze_person(
-            name, gender, bio, msgs, ig_messages=ig_msgs, model=self.settings["model"]))
-        if result:
-            with self.lock:
-                self.cache[match_id]["analysis"] = result
-                self.cache[match_id]["analysis_key"] = f"{ANALYSIS_VERSION}|{key}"
-        self._save_cache()
+        try:
+            name, gender, bio, msgs, ig_msgs, key = self._snapshot(match_id)
+            result = self._call_llm(match_id, "analysis", lambda: analyze_person(
+                name, gender, bio, msgs, ig_messages=ig_msgs, model=self.settings["model"]))
+            if result:
+                leido = result.pop("cita", None)
+                with self.lock:
+                    entry = self.cache[match_id]
+                    entry["analysis"] = result
+                    entry["analysis_key"] = f"{ANALYSIS_VERSION}|{key}"
+                    entry["cita"] = citas.aplicar(entry.get("cita"), leido)
+            self._save_cache()
+        finally:
+            # el borrador se programa recién ahora, con la cita ya actualizada
+            self._schedule_llm()
 
     def _draft(self, match_id):
         name, gender, bio, msgs, _, key = self._snapshot(match_id)
+        cita = citas.leer(self.cache.get(match_id, {}))
         text = self._call_llm(match_id, "draft", lambda: draft_message(
-            name, gender, bio, msgs, self.settings["instructions"], model=self.settings["model"]))
+            name, gender, bio, msgs, self.settings["instructions"], model=self.settings["model"], cita=cita))
         if text:
             with self.lock:
                 entry = self.cache[match_id]
-                entry["draft"] = {"text": text, "for": key}
+                entry["draft"] = {"text": text, "for": _draft_key(entry)}
                 entry.pop("draft_requested", None)
-        self._save_cache()
+            self._save_cache()
+
+            if self._auto_envia(match_id):
+                self.jobs.put(("send", {"match_id": match_id, "text": text, "auto": True}))
+            elif self.settings["auto_send"]:
+                motivo = "tope diario alcanzado" if not self._puede_enviar_auto() else "no está activa"
+                self.log(f"Borrador de {name} queda para revisar ({motivo}).")
+
+    def _auto_envia(self, match_id):
+        return (self.settings["auto_send"] and self._puede_enviar_auto()
+                and self.cupos.estado(match_id) == "activa" and self._browser_alive())
+
+    # --- tope diario de envíos automáticos ---
+
+    def _envios_hoy(self):
+        return self.envios.get("n", 0) if self.envios.get("fecha") == date.today().isoformat() else 0
+
+    def _puede_enviar_auto(self):
+        return self._envios_hoy() < AUTO_SEND_MAX_DIA
+
+    def _registrar_envio(self, match_id, nombre, texto):
+        hoy = date.today().isoformat()
+        if self.envios.get("fecha") != hoy:
+            self.envios = {"fecha": hoy, "n": 0, "ultimos": []}
+        self.envios["n"] = self.envios.get("n", 0) + 1
+        self.envios["ultimos"] = ([{"match_id": match_id, "nombre": nombre, "texto": texto,
+                                    "fecha": datetime.now().isoformat(timespec="seconds")}]
+                                  + self.envios.get("ultimos", []))[:50]
+        self._save_envios()
+
+    def _load_envios(self):
+        try:
+            return json.loads(self.envios_path.read_text(encoding="utf-8"))
+        except (FileNotFoundError, json.JSONDecodeError):
+            return {}
+
+    def _save_envios(self):
+        self.envios_path.parent.mkdir(exist_ok=True)
+        self.envios_path.write_text(json.dumps(self.envios, ensure_ascii=False, indent=2), encoding="utf-8")
 
     # --- persistence ---
 
@@ -585,10 +722,10 @@ class Bot:
             for k in ("analysis_queued", "draft_queued", "summary_queued", "analysis_running", "draft_running"):
                 entry.pop(k, None)
             for k in ("analysis_error", "draft_error"):
-                if "limit" in (entry.get(k) or "").lower():
+                if _error_de_sesion(entry.get(k)):
                     entry.pop(k)
             # drop drafts that no longer match the chat (new messages arrived)
-            if entry.get("draft") and entry["draft"].get("for") != _chat_key(entry):
+            if entry.get("draft") and entry["draft"].get("for") != _draft_key(entry):
                 entry.pop("draft")
         return cache
 
