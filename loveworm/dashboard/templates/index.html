@@ -264,7 +264,7 @@
     <div id="notices"></div>
 
     <div id="view-auto">
-      <details class="how" open>
+      <details class="how">
         <summary>¿Cómo funciona?</summary>
         <ol>
           <li><b>Conexión:</b> iniciá el navegador (paso 1) y traé tus chats.</li>
@@ -625,8 +625,11 @@ function renderAuto(s) {
   $("n-auto").textContent = `${c.usados}/${c.cupo}`;
   // el borrador de un chat que espera tu OK se muestra una sola vez, arriba
   const enBandeja = new Set(aprobar.map(p => p.id));
-  $("list-auto").replaceChildren(...(c.detalle.length
-    ? c.detalle.map(d => personRow(byId.get(d.id) || {id: d.id, name: d.nombre, cupo: "activa"}, s,
+  // del último mensaje más reciente al más antiguo
+  const ultimo = d => (byId.get(d.id) || {}).last_sent || "";
+  const detalle = [...c.detalle].sort((a, b) => ultimo(b).localeCompare(ultimo(a)));
+  $("list-auto").replaceChildren(...(detalle.length
+    ? detalle.map(d => personRow(byId.get(d.id) || {id: d.id, name: d.nombre, cupo: "activa"}, s,
         {score: d.score, fijada: d.fijada, sinBorrador: enBandeja.has(d.id)}))
     : [el("div", {class: "empty"},
         "Todavía no hay chats automatizados. Entran solos al actualizar los chats (los de más interés primero) " +

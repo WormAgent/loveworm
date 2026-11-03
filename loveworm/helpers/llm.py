@@ -190,10 +190,11 @@ DRAFT_SCHEMA = {
 
 def draft_message(name: str, gender, bio: str, messages: list[dict], instructions: str,
                   model: str = "haiku", ahora: datetime | None = None, cita: dict | None = None,
-                  estilo_opts: dict | None = None) -> str:
+                  estilo_opts: dict | None = None, ejemplos: str = "") -> str:
     task = ("Escribí el primer mensaje para abrir la conversación." if not messages
             else "Escribí la respuesta al último mensaje del chat.")
-    prompt = (_context(name, gender, bio, messages, None, ahora) + "\n\n"
+    prompt = ((ejemplos + "\n\n---\n\n" if ejemplos else "")
+              + _context(name, gender, bio, messages, None, ahora) + "\n\n"
               + citas.bloque_prompt(cita) + "\n\n" + task)
     system = DRAFT_SYSTEM + instructions + estilo.instruccion(estilo_opts)
     mensaje = ask(system, prompt, DRAFT_SCHEMA, model=model)["mensaje"]

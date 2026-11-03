@@ -708,9 +708,11 @@ class Bot:
     def _draft(self, match_id):
         name, gender, bio, msgs, _, key = self._snapshot(match_id)
         cita = citas.leer(self.cache.get(match_id, {}))
+        with self.lock:
+            ejemplos = estilo.ejemplos(self.cache, excluir=match_id)
         text = self._call_llm(match_id, "draft", lambda: draft_message(
             name, gender, bio, msgs, self.settings["instructions"], model=self.settings["model"], cita=cita,
-            estilo_opts=self.settings.get("estilo")))
+            estilo_opts=self.settings.get("estilo"), ejemplos=ejemplos))
         if text:
             with self.lock:
                 entry = self.cache[match_id]
