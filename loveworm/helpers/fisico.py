@@ -46,6 +46,8 @@ ATRIBUTOS = {
     "tatuajes": (["a photo of a woman with visible tattoos"], ["a photo of a woman without tattoos"]),
     "ojos claros": (["a close up portrait of a woman with light blue or green eyes"],
                     ["a close up portrait of a woman with dark brown eyes"]),
+    "busto grande": (["a photo of a woman with a large bust", "a photo of a busty woman"],
+                     ["a photo of a woman with a small bust", "a photo of a flat chested woman"]),
     "pelo largo": (["a photo of a woman with long hair"], ["a photo of a woman with short hair"]),
     "lentes": (["a photo of a woman wearing glasses"], ["a photo of a woman without glasses"]),
     "sonrisa": (["a photo of a smiling happy woman"], ["a photo of a serious woman with a neutral face"]),
@@ -262,13 +264,14 @@ class Filtro:
             # se cachean las probabilidades, no el veredicto: si cambiás umbral o pesos,
             # las fotos ya vistas se vuelven a juzgar con la configuración nueva
             probabilidades = self.cache.get(clave)
-            if probabilidades is None:
+            if probabilidades and "rasgos" in probabilidades:  # formato viejo: veredicto entero
+                probabilidades = probabilidades["rasgos"]
+            # si se agregó un rasgo después de cachear la foto, se vuelve a evaluar
+            if probabilidades is None or any(a not in probabilidades for a in ATRIBUTOS):
                 probabilidades = self._evaluar(fotos)
                 if probabilidades is None:
                     return self._fallback(f"no se pudo bajar la foto — {self.ultimo_error}")
                 self._guardar_cache(clave, probabilidades)
-            elif "rasgos" in probabilidades:  # formato viejo: veredicto entero
-                probabilidades = probabilidades["rasgos"]
             veredicto = self._veredicto(probabilidades)
             if veredicto is None:
                 return self._fallback("foto que no dice nada")
