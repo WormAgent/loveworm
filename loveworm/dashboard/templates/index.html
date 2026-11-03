@@ -331,6 +331,21 @@
       <div class="help">Se aplica a todo lo que se envía, también a lo que editás a mano, y se le pide a Claude al escribir el borrador.</div>
     </div>
     <div>
+      <label>Filtro físico al swipear</label>
+      <label class="check"><input type="checkbox" id="fis-activo"><span>Usar el filtro al dar likes</span></label>
+      <div class="two">
+        <div><label for="fis-modo" style="font-size:11px">Modo</label>
+          <select id="fis-modo">
+            <option value="sombra">Sombra (solo anota, no decide)</option>
+            <option value="activo">Activo (decide like o dislike)</option>
+          </select></div>
+        <div><label for="fis-umbral" style="font-size:11px">Umbral (0 a 100)</label>
+          <input id="fis-umbral" type="number" min="0" max="100"></div>
+      </div>
+      <table id="fis-attrs" style="width:100%;margin-top:8px;font-size:12px"></table>
+      <div class="help">Peso: cuánto suma el rasgo al puntaje (0 lo ignora). Obligatorio: si falta, descarta. Excluir: si aparece, descarta. El filtro corre en tu máquina y necesita el navegador iniciado. Probalo primero en modo sombra.</div>
+    </div>
+    <div>
       <label>Límites de la automatización</label>
       <div class="two">
         <div><label for="set-max" style="font-size:11px">Chats automatizados a la vez</label>
@@ -791,7 +806,33 @@ async function openSettings() {
     el("label", {class: "check"},
       el("input", {type: "checkbox", "data-regla": name, ...(s.estilo[name] ? {checked: ""} : {})}),
       el("span", {}, desc))));
+  fisicoCfg = s.fisico;
+  $("fis-activo").checked = !!s.fisico.activo;
+  $("fis-modo").value = s.fisico.modo;
+  $("fis-umbral").value = s.fisico.umbral;
+  $("fis-attrs").replaceChildren(
+    el("tr", {}, el("th", {style: "text-align:left"}, "Rasgo"), el("th", {}, "Peso"),
+      el("th", {}, "Obligatorio"), el("th", {}, "Excluir")),
+    ...s.fisico_atributos.map(a => el("tr", {"data-attr": a},
+      el("td", {}, a),
+      el("td", {style: "text-align:center"}, el("input", {type: "number", min: "0", max: "100", class: "fis-peso",
+        style: "width:60px", value: String(s.fisico.pesos[a] ?? 0)})),
+      el("td", {style: "text-align:center"}, el("input", {type: "checkbox", class: "fis-obl",
+        ...(s.fisico.obligatorio.includes(a) ? {checked: ""} : {})})),
+      el("td", {style: "text-align:center"}, el("input", {type: "checkbox", class: "fis-exc",
+        ...(s.fisico.excluir.includes(a) ? {checked: ""} : {})})))));
   $("settings-dlg").showModal();
+}
+
+// settings.fisico completo: el servidor reemplaza el bloque entero, así que se reenvía lo que la UI no edita
+let fisicoCfg = null;
+function leerFisico() {
+  const filas = [...document.querySelectorAll("#fis-attrs tr[data-attr]")];
+  const marcados = clase => filas.filter(f => f.querySelector(clase).checked).map(f => f.dataset.attr);
+  return {...fisicoCfg, activo: $("fis-activo").checked, modo: $("fis-modo").value,
+          umbral: Number($("fis-umbral").value),
+          pesos: Object.fromEntries(filas.map(f => [f.dataset.attr, Number(f.querySelector(".fis-peso").value) || 0])),
+          obligatorio: marcados(".fis-obl"), excluir: marcados(".fis-exc")};
 }
 
 async function setModo(modo) {
@@ -822,7 +863,8 @@ $("set-cancel").onclick = () => $("settings-dlg").close();
 $("set-save").onclick = async () => {
   const estilo = Object.fromEntries([...document.querySelectorAll("#set-estilo input")].map(i => [i.dataset.regla, i.checked]));
   await post("/api/settings", {instructions: $("set-instructions").value, model: $("set-model").value, estilo,
-                               max_activas: $("set-max").value, tope_diario: $("set-tope").value});
+                               max_activas: $("set-max").value, tope_diario: $("set-tope").value,
+                               fisico: leerFisico()});
   $("settings-dlg").close();
 };
 

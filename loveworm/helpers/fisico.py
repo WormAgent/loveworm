@@ -80,6 +80,13 @@ def completar(opciones):
     cfg.update({k: v for k, v in (opciones or {}).items() if k in DEFAULT})
     pesos = {n: max(0, float(w)) for n, w in (cfg.get("pesos") or {}).items() if n in ATRIBUTOS}
     cfg["pesos"] = pesos or dict(DEFAULT["pesos"])
+    cfg["activo"] = bool(cfg["activo"])
+    if cfg["modo"] not in ("sombra", "activo"):
+        cfg["modo"] = "sombra"
+    try:
+        cfg["umbral"] = max(0, min(100, int(cfg["umbral"])))
+    except (TypeError, ValueError):
+        cfg["umbral"] = DEFAULT["umbral"]
     cfg["obligatorio"] = [a for a in (cfg.get("obligatorio") or []) if a in ATRIBUTOS]
     cfg["excluir"] = [a for a in (cfg.get("excluir") or []) if a in ATRIBUTOS]
     return cfg
