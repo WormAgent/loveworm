@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timezone
 from pathlib import Path
 
-from loveworm.helpers import citas, estilo
+from loveworm.helpers import citas, estilo, fisico
 from loveworm.helpers.cupos import MAX_ACTIVAS, Cupos
 from loveworm.helpers.instagram_web import InstagramWeb, extract_handles
 from loveworm.helpers.llm import LLMError, analyze_person, draft_message
@@ -45,6 +45,8 @@ DEFAULT_SETTINGS = {
     "drafts_since": None,
     # set once the instagram tab logged in; refreshes then also read instagram
     "instagram": False,
+    # filtro por características físicas antes de dar like (ver helpers/fisico.py)
+    "fisico": fisico.DEFAULT,
 }
 MODELS = ("haiku", "sonnet", "opus")
 
@@ -218,10 +220,12 @@ class Bot:
 
     def get_settings(self):
         return dict(self.settings, estilo=estilo.completar(self.settings.get("estilo")),
-                    estilo_reglas=estilo.descripciones(), models=MODELS)
+                    estilo_reglas=estilo.descripciones(), models=MODELS,
+                    fisico=fisico.completar(self.settings.get("fisico")),
+                    fisico_atributos=fisico.descripciones())
 
     def update_settings(self, instructions=None, model=None, auto_drafts=None, auto_send=None,
-                        estilo_opts=None, max_activas=None, tope_diario=None):
+                        estilo_opts=None, max_activas=None, tope_diario=None, fisico_opts=None):
         """Guarda solo lo que viene (None = se conserva), así cada control de la interfaz
         puede cambiar lo suyo sin pisar el resto."""
         if model is not None and model not in MODELS:
@@ -239,7 +243,8 @@ class Bot:
                   else instructions.strip() or DEFAULT_SETTINGS["instructions"],
                   "model": model, "auto_drafts": auto_drafts, "auto_send": auto_send,
                   "estilo": None if estilo_opts is None else estilo.completar(estilo_opts),
-                  "max_activas": max_activas, "tope_diario": tope_diario}
+                  "max_activas": max_activas, "tope_diario": tope_diario,
+                  "fisico": None if fisico_opts is None else fisico.completar(fisico_opts)}
         self.settings.update({k: v for k, v in nuevos.items() if v is not None})
         if auto_drafts is False:
             self.settings["auto_send"] = False  # sin borradores no hay nada que enviar
@@ -365,11 +370,20 @@ class Bot:
         self._tab("tinder")
         self.stop_event.clear()
         self.status = "swipeando"
+
+        filtro = None
+        if self.settings["fisico"].get("activo"):
+            filtro = fisico.Filtro(driver=self.session.browser, root=self.root,
+                                   opciones=self.settings["fisico"], log=self.log)
+            self.log(f"Filtro físico en modo {filtro.cfg['modo']}, umbral {filtro.cfg['umbral']}.")
         self.log(f"Swipe: {amount} likes, ratio {ratio}%, sleep {sleep}s.")
         try:
-            self.session.like(amount=amount, ratio=f"{ratio}%", sleep=sleep, stop_event=self.stop_event)
+            self.session.like(amount=amount, ratio=f"{ratio}%", sleep=sleep,
+                              stop_event=self.stop_event, filtro=filtro)
         finally:
             self.status = "listo"
+            if filtro is not None:
+                self.log(filtro.resumen())
         self.log("Swipe terminado.")
 
     def _person_fields(self, m):

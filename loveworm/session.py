@@ -29,6 +29,7 @@ from loveworm.helpers.login_helper import LoginHelper
 from loveworm.helpers.storage_helper import StorageHelper
 from loveworm.helpers.constants_helper import Printouts
 from loveworm.helpers.xpaths import *
+from loveworm.helpers import fisico
 from loveworm.addproxy import get_proxy_extension
 
 
@@ -67,7 +68,7 @@ class Session:
                 print("Started session: {}".format(self.started))
                 y = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
                 print("Ended session: {}".format(y))
-            
+
             # Close browser properly
             self.browser.quit()
 
@@ -219,7 +220,8 @@ class Session:
         StorageHelper.store_match(match=match, directory='data/{}'.format(filename), filename=filename)
 
     # stop_event: optional threading.Event that ends the loop early when set
-    def like(self, amount=1, ratio='100%', sleep=1, randomize_sleep = True, stop_event=None):
+    # filtro: Filtro de helpers/fisico.py; decide like/dislike en vez del ratio aleatorio
+    def like(self, amount=1, ratio='100%', sleep=1, randomize_sleep=True, stop_event=None, filtro=None):
 
         initial_sleep = sleep
         ratio = float(ratio.split('%')[0]) / 100
@@ -234,10 +236,24 @@ class Session:
                 if stop_event is not None and stop_event.is_set():
                     print("Liking stopped.")
                     break
+                if filtro is not None and filtro.agotado:
+                    print("Filtro agotado (max_vistos).")
+                    break
                 # randomize sleep
                 if randomize_sleep:
                     sleep = random.uniform(0.5, 2.3) * initial_sleep
-                if random.random() <= ratio:
+
+                # los popups se comen el click: se limpian antes de cada tarjeta, no una sola vez
+                self._handle_potential_popups()
+
+                pasar = None
+                if filtro is not None:
+                    # None = no decide (sombra, sin fotos, error): cae al ratio de siempre
+                    pasar = filtro.decidir()
+                if pasar is None:
+                    pasar = random.random() <= ratio
+
+                if pasar:
                     if helper.like():
                         amount_liked += 1
                         # update for stats after session ended
@@ -248,7 +264,6 @@ class Session:
                     # update for stats after session ended
                     self.session_data['dislike'] += 1
 
-                #self._handle_potential_popups()
                 time.sleep(sleep)
 
             self._print_liked_stats()
@@ -271,6 +286,7 @@ class Session:
             for _ in range(amount):
                 self._handle_potential_popups()
                 helper.superlike()
+
                 # update for stats after session ended
                 self.session_data['superlike'] += 1
                 time.sleep(1)
@@ -501,4 +517,3 @@ class Session:
             print(f"You've liked {self.session_data['like']} profiles during this session.")
         if dislikes > 0:
             print(f"You've disliked {self.session_data['dislike']} profiles during this session.")
-
