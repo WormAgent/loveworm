@@ -374,7 +374,8 @@ class Bot:
         filtro = None
         if self.settings["fisico"].get("activo"):
             filtro = fisico.Filtro(driver=self.session.browser, root=self.root,
-                                   opciones=self.settings["fisico"], log=self.log)
+                                   opciones=self.settings["fisico"], log=self.log,
+                                   api=TinderApi(self.session.browser))
             self.log(f"Filtro físico en modo {filtro.cfg['modo']}, umbral {filtro.cfg['umbral']}.")
         self.log(f"Swipe: {amount} likes, ratio {ratio}%, sleep {sleep}s.")
         try:

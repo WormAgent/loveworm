@@ -60,7 +60,7 @@ DEFAULT = {
     "ratio_max": 100,              # techo: % de los que pasan el umbral que igual se likean
     "max_vistos": 60,              # corta el swipe después de N tarjetas evaluadas
     "min_fotos": 1,                # menos fotos que esto → no decide
-    "max_fotos": 3,                # fotos que se miran por tarjeta
+    "max_fotos": 9,                # fotos que se miran por perfil (Tinder permite hasta 9)
     "obligatorio": [],             # si falta uno, rechazo directo
     "excluir": [],                 # si aparece uno, rechazo directo
     # delgada pesa poco a propósito: en primer plano no se ve el cuerpo y CLIP queda en 0.5
@@ -72,6 +72,7 @@ DEFAULT = {
     "corte_incierto": 0.08,        # si ningún atributo se aparta de 0.5, no decide
 }
 
+_UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
 _CACHE_MAX = 5000
 _modelo = None
 _modelo_lock = threading.Lock()
@@ -83,6 +84,10 @@ def completar(opciones):
     pesos = {n: max(0, float(w)) for n, w in (cfg.get("pesos") or {}).items() if n in ATRIBUTOS}
     cfg["pesos"] = pesos or dict(DEFAULT["pesos"])
     cfg["activo"] = bool(cfg["activo"])
+    try:
+        cfg["max_fotos"] = max(1, min(9, int(cfg["max_fotos"])))
+    except (TypeError, ValueError):
+        cfg["max_fotos"] = DEFAULT["max_fotos"]
     if cfg["modo"] not in ("sombra", "activo"):
         cfg["modo"] = "sombra"
     try:
@@ -120,8 +125,12 @@ def _clave(fotos):
 
 class Filtro:
 
-    def __init__(self, driver, root, opciones=None, log=print):
+    def __init__(self, driver, root, opciones=None, log=print, api=None):
         self.driver = driver
+        # TinderApi: trae todas las fotos de cada perfil. Sin ella solo se ven las de la tarjeta
+        self.api = api
+        self._indice = {}      # id de foto -> urls de todas las fotos de ese perfil
+        self._fallos_api = 0
         self.cfg = completar(opciones)
         self.log = log
         self.root = Path(root) / "data"
@@ -167,6 +176,43 @@ class Filtro:
         if not url.startswith("https://"):
             return None
         return re.sub(r"(?<=\.jpg).*$", "?image_size=640x800", url) if "?" not in url else url
+
+    def _cargar_recs(self):
+        """Pide el mazo a la API y anota las fotos completas de cada perfil."""
+        data = self.api._request("GET", "/v2/recs/core?locale=es")["data"]
+        if len(self._indice) > 400:
+            self._indice.clear()
+        for rec in data.get("results", []):
+            fotos = [p.get("url") for p in (rec.get("user") or {}).get("photos") or [] if p.get("url")]
+            if not fotos:
+                continue
+            # la tarjeta muestra una foto cualquiera: se indexa por el id de cada una
+            for url in fotos:
+                for pid in _UUID.findall(url):
+                    self._indice[pid] = fotos
+
+    def _perfil_completo(self, visibles):
+        """Todas las fotos del perfil (hasta max_fotos). Si la API no sirve, las de la tarjeta."""
+        if self.api is None or self._fallos_api >= 3:
+            return visibles
+        ids = _UUID.findall(visibles[0])
+        if not ids:
+            return visibles
+        for intento in range(2):
+            for pid in ids:
+                if pid in self._indice:
+                    return self._indice[pid][: self.cfg["max_fotos"]]
+            if intento == 0:
+                try:
+                    self._cargar_recs()
+                    self._fallos_api = 0
+                except Exception as exc:
+                    self._fallos_api += 1
+                    self.ultimo_error = f"recs: {exc}"
+                    if self._fallos_api >= 3:
+                        self.log("Filtro físico: la API de fotos falla, se usan solo las fotos de la tarjeta.")
+                    return visibles
+        return visibles
 
     # --- evaluación ---
 
@@ -256,9 +302,10 @@ class Filtro:
         if self.agotado:
             return None
         try:
-            fotos = self.fotos()
-            if len(fotos) < max(1, self.cfg["min_fotos"]):
+            visibles = self.fotos()
+            if len(visibles) < max(1, self.cfg["min_fotos"]):
                 return self._fallback("sin fotos")
+            fotos = self._perfil_completo(visibles)
             clave = _clave(fotos)
 
             # se cachean las probabilidades, no el veredicto: si cambiás umbral o pesos,
@@ -278,7 +325,7 @@ class Filtro:
 
             self.vistos += 1
             # la tarjeta pudo cambiar mientras se evaluaba: si cambió, no se aplica el veredicto
-            if _clave(self.fotos()) != clave:
+            if self.fotos()[:1] != visibles[:1]:
                 self.inciertos += 1
                 return self._fallback("tarjeta cambiada")
 
@@ -314,7 +361,7 @@ class Filtro:
         """Una línea por tarjeta, para calibrar el umbral después con datos reales."""
         self.root.mkdir(exist_ok=True)
         linea = json.dumps({"clave": clave, "fecha": time.strftime("%Y-%m-%d %H:%M:%S"),
-                            "foto": fotos[0], "sombra": sombra, **veredicto}, ensure_ascii=False)
+                            "foto": fotos[0], "n_fotos": len(fotos), "sombra": sombra, **veredicto}, ensure_ascii=False)
         with self.swipes_path.open("a", encoding="utf-8") as f:
             f.write(linea + "\n")
 

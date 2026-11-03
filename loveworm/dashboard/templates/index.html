@@ -342,6 +342,8 @@
         <div><label for="fis-umbral" style="font-size:11px">Umbral (0 a 100)</label>
           <input id="fis-umbral" type="number" min="0" max="100"></div>
       </div>
+      <div style="margin-top:8px"><label for="fis-fotos" style="font-size:11px">Fotos a mirar por perfil (1 a 9)</label>
+        <input id="fis-fotos" type="number" min="1" max="9"></div>
       <table id="fis-attrs" style="width:100%;margin-top:8px;font-size:12px"></table>
       <div class="help">Peso: cuánto suma el rasgo al puntaje (0 lo ignora). Obligatorio: si falta, descarta. Excluir: si aparece, descarta. El filtro corre en tu máquina y necesita el navegador iniciado. Probalo primero en modo sombra.</div>
     </div>
@@ -810,6 +812,7 @@ async function openSettings() {
   $("fis-activo").checked = !!s.fisico.activo;
   $("fis-modo").value = s.fisico.modo;
   $("fis-umbral").value = s.fisico.umbral;
+  $("fis-fotos").value = s.fisico.max_fotos;
   $("fis-attrs").replaceChildren(
     el("tr", {}, el("th", {style: "text-align:left"}, "Rasgo"), el("th", {}, "Peso"),
       el("th", {}, "Obligatorio"), el("th", {}, "Excluir")),
@@ -830,7 +833,7 @@ function leerFisico() {
   const filas = [...document.querySelectorAll("#fis-attrs tr[data-attr]")];
   const marcados = clase => filas.filter(f => f.querySelector(clase).checked).map(f => f.dataset.attr);
   return {...fisicoCfg, activo: $("fis-activo").checked, modo: $("fis-modo").value,
-          umbral: Number($("fis-umbral").value),
+          umbral: Number($("fis-umbral").value), max_fotos: Number($("fis-fotos").value) || 1,
           pesos: Object.fromEntries(filas.map(f => [f.dataset.attr, Number(f.querySelector(".fis-peso").value) || 0])),
           obligatorio: marcados(".fis-obl"), excluir: marcados(".fis-exc")};
 }
