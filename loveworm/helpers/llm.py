@@ -160,6 +160,7 @@ DRAFT_SYSTEM = (
     "CÓMO ESCRIBE\n"
     "- Corto y natural, español rioplatense, como en un chat de verdad. Una o dos oraciones.\n"
     "- Nada de frases armadas ni piropos genéricos. Como mucho un emoji, y no siempre.\n"
+    "- Si ella te hizo una pregunta, contestala siempre, aunque no sea en el último mensaje. "
     "- Si el último mensaje de ella se puede contestar sin preguntar nada, contestá. "
     "No metas pregunta en todos los mensajes.\n"
     "- Nunca dos preguntas seguidas en el mismo mensaje.\n"
@@ -241,8 +242,20 @@ def bloque_perfil(guia: dict | None, sobre_mi: str = "") -> str:
 def draft_message(name: str, gender, bio: str, messages: list[dict], instructions: str,
                   model: str = "haiku", ahora: datetime | None = None, cita: dict | None = None,
                   estilo_opts: dict | None = None, ejemplos: str = "", perfil: str = "") -> str:
-    task = ("Escribí el primer mensaje para abrir la conversación." if not messages
-            else "Escribí la respuesta al último mensaje del chat.")
+    # lo que ella mandó desde la última vez que le contestaste: suele ser una ráfaga de varios mensajes
+    pendientes = []
+    for m in reversed(messages):
+        if m["from_me"]:
+            break
+        pendientes.append(m["text"])
+    if not messages:
+        task = "Escribí el primer mensaje para abrir la conversación."
+    elif len(pendientes) > 1:
+        task = (f"Ella mandó {len(pendientes)} mensajes seguidos y todavía no le contestaste. Leelos todos, no "
+                "contestes solo al último: si hay una pregunta, respondela sí o sí (sin esquivarla ni "
+                "devolverle la pregunta en vez de contestar) y, si entra, reaccioná también a lo otro.")
+    else:
+        task = "Escribí la respuesta al último mensaje del chat. Si hay una pregunta, respondela."
     prompt = ((perfil + "\n\n---\n\n" if perfil else "")
               + (ejemplos + "\n\n---\n\n" if ejemplos else "")
               + _context(name, gender, bio, messages, None, ahora) + "\n\n"
