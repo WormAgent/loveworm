@@ -18,6 +18,8 @@ from loveworm.helpers.tinder_api import TinderApi
 
 # bump when the analysis schema changes so every person gets re-analyzed
 ANALYSIS_VERSION = "persona-v2"
+# cada cuántos minutos se vuelven a traer los chats de Tinder solos
+REFRESCO_MIN = 15
 
 # techo de envíos automáticos por día, para que el bot no se suelte
 AUTO_SEND_MAX_DIA = 12
@@ -139,7 +141,9 @@ class Bot:
         self.llm_paused = False
         self._load_lists()
 
+        self._refresh_t = None  # se setea en el primer refresh; sin él no hay refresco automático
         threading.Thread(target=self._loop, daemon=True).start()
+        threading.Thread(target=self._refresco_automatico, daemon=True).start()
         # analysis only needs the stored chats, so it starts without opening chrome
         self._schedule_llm()
 
@@ -380,8 +384,20 @@ class Bot:
             "matched": m.get("created_date"),
         }
 
+    def _refresco_automatico(self):
+        """Pide un refresco cada REFRESCO_MIN minutos mientras el navegador esté abierto y sin nada en curso."""
+        while not self.stop_event.wait(30):
+            t = self._refresh_t
+            if (t is None or time.monotonic() - t < REFRESCO_MIN * 60
+                    or self.status != "listo" or self.current_job or not self.jobs.empty()
+                    or not self._browser_alive()):
+                continue
+            self._refresh_t = time.monotonic()  # no apilar pedidos mientras el job espera turno
+            self.jobs.put(("refresh", {}))
+
     def _job_refresh(self):
         self._require_session()
+        self._refresh_t = time.monotonic()  # también si falla: reintenta recién en el próximo ciclo
         self.status = "actualizando chats"
         api = TinderApi(self._tab("tinder"))
         try:
