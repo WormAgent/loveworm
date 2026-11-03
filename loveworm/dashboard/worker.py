@@ -13,7 +13,7 @@ from pathlib import Path
 from loveworm.helpers import citas, estilo, fisico
 from loveworm.helpers.cupos import MAX_ACTIVAS, Cupos
 from loveworm.helpers.instagram_web import InstagramWeb, extract_handles
-from loveworm.helpers.llm import LLMError, analyze_person, draft_message
+from loveworm.helpers.llm import LLMError, analyze_person, bloque_perfil, draft_message, generar_guia
 from loveworm.helpers.tinder_api import TinderApi
 
 # bump when the analysis schema changes so every person gets re-analyzed
@@ -47,6 +47,8 @@ DEFAULT_SETTINGS = {
     "instagram": False,
     # filtro por características físicas antes de dar like (ver helpers/fisico.py)
     "fisico": fisico.DEFAULT,
+    # lo que Claude tiene que saber de vos: qué hacés, qué te gusta, cómo sos
+    "sobre_mi": "",
 }
 MODELS = ("haiku", "sonnet", "opus")
 
@@ -118,6 +120,10 @@ class Bot:
         self.lists_path = self.root / "data" / "dashboard_lists.json"
         self.settings_path = self.root / "data" / "dashboard_settings.json"
         self.envios_path = self.root / "data" / "envios.json"
+        self.guia_path = self.root / "data" / "guia_estilo.json"
+        self._guia_cache = None
+        self._guia_lock = threading.Lock()
+        self._guia_fallo = 0.0
         self.cache = self._load_cache()
         self.settings = self._load_settings()
         self.envios = self._load_envios()
@@ -222,10 +228,57 @@ class Bot:
         return dict(self.settings, estilo=estilo.completar(self.settings.get("estilo")),
                     estilo_reglas=estilo.descripciones(), models=MODELS,
                     fisico=fisico.completar(self.settings.get("fisico")),
-                    fisico_atributos=fisico.descripciones())
+                    fisico_atributos=fisico.descripciones(), guia=self._leer_guia())
+
+    def _leer_guia(self):
+        """La guía ya guardada (sin generarla): estilo, hechos y fecha."""
+        if self._guia_cache is None:
+            try:
+                self._guia_cache = json.loads(self.guia_path.read_text(encoding="utf-8"))
+            except (FileNotFoundError, json.JSONDecodeError):
+                self._guia_cache = {}
+        return self._guia_cache
+
+    def _guia(self):
+        """Guía de estilo y datos sacados de tus chats. Se genera una sola vez con Claude (tarda un rato) y
+        queda en data/guia_estilo.json; para rehacerla, el botón de la configuración."""
+        with self._guia_lock:
+            guia = self._leer_guia()
+            if guia or time.time() - self._guia_fallo < 600:
+                return guia
+            with self.lock:
+                textos = estilo.mensajes_propios(self.cache)
+                stats = estilo.estadisticas(self.cache)
+                tramos = estilo.ejemplos(self.cache, cantidad=20, parecidos=0)
+            if len(textos) < 40:
+                return {}
+            self.log("Leyendo tus chats para aprender cómo escribís (se hace una sola vez)...")
+            try:
+                guia = generar_guia(textos, tramos, stats)
+            except LLMError as e:
+                self._guia_fallo = time.time()
+                self.log(f"No se pudo armar la guía de estilo: {e}")
+                return {}
+            guia["fecha"] = _now_iso()
+            self.guia_path.parent.mkdir(exist_ok=True)
+            self.guia_path.write_text(json.dumps(guia, ensure_ascii=False, indent=2), encoding="utf-8")
+            self._guia_cache = guia
+            self.log("Guía de estilo lista.")
+            return guia
+
+    def regenerar_guia(self):
+        with self._guia_lock:
+            self._guia_cache = {}
+            self._guia_fallo = 0.0
+            try:
+                self.guia_path.unlink()
+            except FileNotFoundError:
+                pass
+        self.log("Guía de estilo borrada: se vuelve a armar con el próximo borrador.")
 
     def update_settings(self, instructions=None, model=None, auto_drafts=None, auto_send=None,
-                        estilo_opts=None, max_activas=None, tope_diario=None, fisico_opts=None):
+                        estilo_opts=None, max_activas=None, tope_diario=None, fisico_opts=None,
+                        sobre_mi=None):
         """Guarda solo lo que viene (None = se conserva), así cada control de la interfaz
         puede cambiar lo suyo sin pisar el resto."""
         if model is not None and model not in MODELS:
@@ -244,7 +297,8 @@ class Bot:
                   "model": model, "auto_drafts": auto_drafts, "auto_send": auto_send,
                   "estilo": None if estilo_opts is None else estilo.completar(estilo_opts),
                   "max_activas": max_activas, "tope_diario": tope_diario,
-                  "fisico": None if fisico_opts is None else fisico.completar(fisico_opts)}
+                  "fisico": None if fisico_opts is None else fisico.completar(fisico_opts),
+                  "sobre_mi": None if sobre_mi is None else sobre_mi.strip()}
         self.settings.update({k: v for k, v in nuevos.items() if v is not None})
         if auto_drafts is False:
             self.settings["auto_send"] = False  # sin borradores no hay nada que enviar
@@ -740,11 +794,14 @@ class Bot:
     def _draft(self, match_id):
         name, gender, bio, msgs, _, key = self._snapshot(match_id)
         cita = citas.leer(self.cache.get(match_id, {}))
+        guia = self._guia()
         with self.lock:
-            ejemplos = estilo.ejemplos(self.cache, excluir=match_id)
+            ejemplos = estilo.ejemplos(self.cache, excluir=match_id, consulta=estilo.consulta_de(msgs))
+            stats = estilo.estadisticas(self.cache)
+        perfil = bloque_perfil(dict(guia, stats=stats), self.settings.get("sobre_mi", ""))
         text = self._call_llm(match_id, "draft", lambda: draft_message(
             name, gender, bio, msgs, self.settings["instructions"], model=self.settings["model"], cita=cita,
-            estilo_opts=self.settings.get("estilo"), ejemplos=ejemplos))
+            estilo_opts=self.settings.get("estilo"), ejemplos=ejemplos, perfil=perfil))
         if text:
             with self.lock:
                 entry = self.cache[match_id]

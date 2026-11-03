@@ -148,9 +148,16 @@ def save_settings():
         bot.update_settings(instructions=campo("instructions", str), model=campo("model", str),
                             auto_drafts=campo("auto_drafts", bool), auto_send=campo("auto_send", bool),
                             estilo_opts=body.get("estilo"), max_activas=campo("max_activas", int),
-                            tope_diario=campo("tope_diario", int), fisico_opts=body.get("fisico"))
+                            tope_diario=campo("tope_diario", int), fisico_opts=body.get("fisico"),
+                            sobre_mi=campo("sobre_mi", str))
     except (TypeError, ValueError) as e:
         return jsonify(ok=False, error=str(e)), 400
+    return jsonify(ok=True)
+
+
+@app.post("/api/guia/regenerar")
+def regenerar_guia():
+    bot.regenerar_guia()
     return jsonify(ok=True)
 
 

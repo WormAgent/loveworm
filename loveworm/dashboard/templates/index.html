@@ -321,6 +321,16 @@
       <div class="help">Cómo escribir los mensajes: tono, qué buscar, qué evitar.</div>
     </div>
     <div>
+      <label for="set-sobre">Sobre vos</label>
+      <textarea id="set-sobre" rows="6" placeholder="Qué hacés, qué estudiás o en qué trabajás, dónde vivís, qué te gusta (música, juegos, deportes, comida), qué planes te gustan, cómo sos..."></textarea>
+      <div class="help">Claude lo usa para tener de qué hablar y para contestar cuando te preguntan por vos. Solo lo menciona si viene al caso. Si está vacío, te dejo datos sacados de tus chats: <b>revisalos, borrá lo viejo o lo que no quieras que mencione, y guardá</b>. No se usa nada hasta que guardes.</div>
+    </div>
+    <div>
+      <label>Cómo escribís (aprendido de tus chats)</label>
+      <textarea id="set-guia" rows="8" readonly placeholder="Todavía no se armó: se genera sola con el primer borrador."></textarea>
+      <div class="help">Claude la armó leyendo tus mensajes. Entra en cada borrador junto con ejemplos parecidos a la charla. <button type="button" id="btn-guia">Rehacerla</button> si cambió tu forma de escribir o sumaste muchos chats.</div>
+    </div>
+    <div>
       <label for="set-model">Modelo</label>
       <select id="set-model"></select>
       <div class="help">Se usa para analizar a cada persona y escribir borradores. Haiku es el que menos gasta.</div>
@@ -806,6 +816,9 @@ async function openSettings() {
     el("label", {class: "check"},
       el("input", {type: "checkbox", "data-regla": name, ...(s.estilo[name] ? {checked: ""} : {})}),
       el("span", {}, desc))));
+  // si todavía no escribiste nada, se dejan como punto de partida los datos que Claude sacó de tus chats
+  $("set-sobre").value = s.sobre_mi || (s.guia && s.guia.hechos) || "";
+  $("set-guia").value = (s.guia && s.guia.estilo) || "";
   fisicoCfg = s.fisico;
   $("fis-activo").checked = !!s.fisico.activo;
   $("fis-modo").value = s.fisico.modo;
@@ -855,11 +868,15 @@ $("btn-settings").onclick = openSettings;
 $("btn-ig").onclick = () => post("/api/instagram/connect");
 $("chat-close").onclick = () => $("chat-dlg").close();
 $("set-cancel").onclick = () => $("settings-dlg").close();
+$("btn-guia").onclick = async () => {
+  await post("/api/guia/regenerar");
+  $("set-guia").value = "";
+};
 $("set-save").onclick = async () => {
   const estilo = Object.fromEntries([...document.querySelectorAll("#set-estilo input")].map(i => [i.dataset.regla, i.checked]));
   await post("/api/settings", {instructions: $("set-instructions").value, model: $("set-model").value, estilo,
                                max_activas: $("set-max").value, tope_diario: $("set-tope").value,
-                               fisico: leerFisico()});
+                               fisico: leerFisico(), sobre_mi: $("set-sobre").value});
   $("settings-dlg").close();
 };
 
