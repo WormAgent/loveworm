@@ -1,12 +1,15 @@
 """Filtro por características físicas antes de dar like, con CLIP zero-shot y local.
 
 No manda fotos a ningún lado: el modelo corre en tu máquina. Cada atributo se compara
-contra un par de descripciones (positiva y negativa) y queda una probabilidad; el score
-sale de sumar esas probabilidades con los pesos de la configuración.
+contra un par de descripciones (positiva y negativa) y queda una probabilidad, tomando
+la mejor foto de cada uno.
+
+Cada rasgo es "quiero" (obligatorio), "evitar" (excluir) o da igual. Pasa quien tiene todos
+los que quiero y ninguno de los que evito.
 
 Modos:
-  sombra  no decide, solo anota en data/fisico_swipes.jsonl (para calibrar el umbral)
-  activo  decide: likea si pasa el umbral, si no descarta
+  sombra  no decide, solo anota en data/fisico_swipes.jsonl (para ver qué haría)
+  activo  decide: likea si pasa, si no descarta
 
 Si algo falla (foto que no baja, modelo que no carga, tarjeta que cambió) devuelve None
 y el swipe sigue con el ratio de siempre. Un filtro que traba el bot es peor que no tenerlo.
@@ -56,15 +59,11 @@ ATRIBUTOS = {
 DEFAULT = {
     "activo": False,
     "modo": "sombra",              # sombra | activo
-    "umbral": 62,                  # score mínimo para likear (0-100)
-    "ratio_max": 100,              # techo: % de los que pasan el umbral que igual se likean
     "max_vistos": 60,              # corta el swipe después de N tarjetas evaluadas
     "min_fotos": 1,                # menos fotos que esto → no decide
     "max_fotos": 9,                # fotos que se miran por perfil (Tinder permite hasta 9)
-    "obligatorio": [],             # si falta uno, rechazo directo
-    "excluir": [],                 # si aparece uno, rechazo directo
-    # delgada pesa poco a propósito: en primer plano no se ve el cuerpo y CLIP queda en 0.5
-    "pesos": {"morocha": 30, "delgada": 20, "tatuajes": 15, "ojos claros": 15, "sonrisa": 20},
+    "obligatorio": [],             # quiero: si falta uno, no le da like
+    "excluir": [],                 # evitar: si aparece uno, no le da like
     "modelo": "ViT-B-32",
     "checkpoint": "laion2b_s34b_b79k",
     "fallback": "like",            # like | dislike, cuando no hay veredicto
@@ -81,8 +80,6 @@ _modelo_lock = threading.Lock()
 def completar(opciones):
     cfg = dict(DEFAULT)
     cfg.update({k: v for k, v in (opciones or {}).items() if k in DEFAULT})
-    pesos = {n: max(0, float(w)) for n, w in (cfg.get("pesos") or {}).items() if n in ATRIBUTOS}
-    cfg["pesos"] = pesos or dict(DEFAULT["pesos"])
     cfg["activo"] = bool(cfg["activo"])
     try:
         cfg["max_fotos"] = max(1, min(9, int(cfg["max_fotos"])))
@@ -90,12 +87,10 @@ def completar(opciones):
         cfg["max_fotos"] = DEFAULT["max_fotos"]
     if cfg["modo"] not in ("sombra", "activo"):
         cfg["modo"] = "sombra"
-    try:
-        cfg["umbral"] = max(0, min(100, int(cfg["umbral"])))
-    except (TypeError, ValueError):
-        cfg["umbral"] = DEFAULT["umbral"]
-    cfg["obligatorio"] = [a for a in (cfg.get("obligatorio") or []) if a in ATRIBUTOS]
     cfg["excluir"] = [a for a in (cfg.get("excluir") or []) if a in ATRIBUTOS]
+    # si un rasgo viene en las dos listas, evitar gana
+    cfg["obligatorio"] = [a for a in (cfg.get("obligatorio") or [])
+                          if a in ATRIBUTOS and a not in cfg["excluir"]]
     return cfg
 
 
@@ -277,21 +272,16 @@ class Filtro:
 
     def _veredicto(self, probabilidades):
         corte = self.cfg["corte"]
-        pesos = self.cfg["pesos"]
-        # si ningún atributo se aparta de 0.5, la foto no dice nada: no decide
-        if max(abs(p - 0.5) for p in probabilidades.values()) < self.cfg["corte_incierto"]:
+        quiero, evitar = self.cfg["obligatorio"], self.cfg["excluir"]
+        # si ninguno de los rasgos elegidos se aparta de 0.5, las fotos no dicen nada: no decide
+        if max(abs(probabilidades.get(a, 0.5) - 0.5) for a in quiero + evitar) < self.cfg["corte_incierto"]:
             return None
 
-        faltan = [a for a in self.cfg["obligatorio"] if probabilidades.get(a, 0) < corte]
-        sobran = [a for a in self.cfg["excluir"] if probabilidades.get(a, 0) >= corte]
-        total = sum(pesos.values()) or 1
-        score = round(100 * sum(probabilidades.get(n, 0.5) * w for n, w in pesos.items()) / total)
-
-        if faltan or sobran:
-            pasa = False
-        else:
-            pasa = score >= self.cfg["umbral"] and random.random() * 100 <= self.cfg["ratio_max"]
-        return {"score": score, "pasa": pasa, "rasgos": probabilidades,
+        faltan = [a for a in quiero if probabilidades.get(a, 0) < corte]
+        sobran = [a for a in evitar if probabilidades.get(a, 0) >= corte]
+        # solo informativo (para mirar el registro): qué tanto se ven los rasgos que quiero
+        score = round(100 * sum(probabilidades.get(a, 0) for a in quiero) / len(quiero)) if quiero else 100
+        return {"score": score, "pasa": not (faltan or sobran), "rasgos": probabilidades,
                 "faltan": faltan, "sobran": sobran}
 
     # --- decisión ---
@@ -304,6 +294,8 @@ class Filtro:
         """True likea, False descarta, None no decide (sombra, sin fotos, error, desincronizado)."""
         if self.agotado:
             return None
+        if not (self.cfg["obligatorio"] or self.cfg["excluir"]):
+            return None  # no elegiste ningún rasgo: no hay nada que filtrar
         try:
             visibles = self.fotos()
             if len(visibles) < max(1, self.cfg["min_fotos"]):

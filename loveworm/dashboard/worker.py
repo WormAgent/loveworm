@@ -376,7 +376,8 @@ class Bot:
             filtro = fisico.Filtro(driver=self.session.browser, root=self.root,
                                    opciones=self.settings["fisico"], log=self.log,
                                    api=TinderApi(self.session.browser))
-            self.log(f"Filtro físico en modo {filtro.cfg['modo']}, umbral {filtro.cfg['umbral']}.")
+            self.log(f"Filtro físico en modo {filtro.cfg['modo']}: quiero {filtro.cfg['obligatorio'] or '—'}, "
+                     f"evitar {filtro.cfg['excluir'] or '—'}.")
         self.log(f"Swipe: {amount} likes, ratio {ratio}%, sleep {sleep}s.")
         try:
             self.session.like(amount=amount, ratio=f"{ratio}%", sleep=sleep,
