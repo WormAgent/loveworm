@@ -33,8 +33,9 @@ def _ig(entry):
 
 class Cupos:
 
-    def __init__(self, path):
+    def __init__(self, path, max_activas=MAX_ACTIVAS):
         self.path = Path(path)
+        self.max_activas = max_activas
         self.activas = {}   # match_id -> {"desde": iso, "fijada": bool}
         self.rotadas = {}   # match_id -> {"fecha": iso, "motivo": str}
         self._cargar()
@@ -67,6 +68,12 @@ class Cupos:
         self.rotadas.pop(match_id, None)
         self._guardar()
 
+    def desfijar(self, match_id):
+        """Sigue activa, pero vuelve a rotar si deja de responder."""
+        if match_id in self.activas:
+            self.activas[match_id]["fijada"] = False
+            self._guardar()
+
     def soltar(self, match_id):
         """Le saca el cupo a mano."""
         self.activas.pop(match_id, None)
@@ -96,7 +103,7 @@ class Cupos:
                 self.rotadas[mid] = {"fecha": ahora.isoformat(), "motivo": motivo}
                 rotadas.append(mid)
 
-        libres = MAX_ACTIVAS - len(self.activas)
+        libres = self.max_activas - len(self.activas)
         if libres > 0:
             for mid in self._candidatas(cache, ahora)[:libres]:
                 self.activas[mid] = {"desde": ahora.isoformat(), "fijada": False}
@@ -173,8 +180,12 @@ class Cupos:
                             "score": interes.score_final(entry, ahora=ahora),
                             "fijada": bool(self.activas[mid].get("fijada"))})
         detalle.sort(key=lambda d: d["score"], reverse=True)
-        return {"cupo": MAX_ACTIVAS, "usados": len(self.activas), "detalle": detalle,
-                "rotadas": len(self.rotadas)}
+        pausadas = [{"id": mid, "nombre": (cache.get(mid) or {}).get("name", "?"),
+                     "motivo": r.get("motivo", ""), "fecha": r.get("fecha")}
+                    for mid, r in self.rotadas.items()]
+        pausadas.sort(key=lambda p: p["fecha"] or "", reverse=True)
+        return {"cupo": self.max_activas, "usados": len(self.activas), "detalle": detalle,
+                "rotadas": len(self.rotadas), "pausadas": pausadas[:30]}
 
 
 # --- prueba suelta: muestra qué haría la política con tus chats de ahora ---

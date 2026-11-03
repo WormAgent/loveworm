@@ -2,6 +2,8 @@
 import json
 import time
 
+from loveworm.helpers import estilo
+
 API_URL = "https://api.gotinder.com"
 
 # runs inside tinder.com so the request carries the logged-in session token
@@ -76,5 +78,6 @@ class TinderApi:
 
         return sorted(messages, key=lambda m: m.get("sent_date", ""))
 
-    def send_message(self, match_id, text):
-        return self._request("POST", f"/user/matches/{match_id}", {"message": text})
+    def send_message(self, match_id, text, estilo_opts=None):
+        message = estilo.normalizar(text, estilo_opts)
+        return self._request("POST", f"/user/matches/{match_id}", {"message": message})

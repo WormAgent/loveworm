@@ -7,7 +7,7 @@ import shutil
 import subprocess
 from datetime import datetime, timedelta
 
-from loveworm.helpers import citas
+from loveworm.helpers import citas, estilo
 
 
 class LLMError(RuntimeError):
@@ -189,12 +189,15 @@ DRAFT_SCHEMA = {
 
 
 def draft_message(name: str, gender, bio: str, messages: list[dict], instructions: str,
-                  model: str = "haiku", ahora: datetime | None = None, cita: dict | None = None) -> str:
+                  model: str = "haiku", ahora: datetime | None = None, cita: dict | None = None,
+                  estilo_opts: dict | None = None) -> str:
     task = ("Escribí el primer mensaje para abrir la conversación." if not messages
             else "Escribí la respuesta al último mensaje del chat.")
     prompt = (_context(name, gender, bio, messages, None, ahora) + "\n\n"
               + citas.bloque_prompt(cita) + "\n\n" + task)
-    return ask(DRAFT_SYSTEM + instructions, prompt, DRAFT_SCHEMA, model=model)["mensaje"].strip()
+    system = DRAFT_SYSTEM + instructions + estilo.instruccion(estilo_opts)
+    mensaje = ask(system, prompt, DRAFT_SCHEMA, model=model)["mensaje"]
+    return estilo.normalizar(mensaje, estilo_opts)
 
 
 # --- prueba suelta: muestra la agenda que ve el modelo, y un borrador de ejemplo ---

@@ -29,22 +29,26 @@
   .spacer { flex: 1; }
   .icon-btn { width: 36px; height: 36px; padding: 0; display: grid; place-items: center; border-radius: 50%; }
   .icon-btn svg { width: 19px; height: 19px; }
-  main { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 16px; padding: 16px 20px; max-width: 1800px; margin: 0 auto; align-items: start; }
+  main { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 16px; padding: 16px 20px; max-width: 1800px; margin: 0 auto; align-items: start; }
   @media (max-width: 900px) { main { grid-template-columns: 1fr; padding: 12px 16px; } }
   .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
-  .panel h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 12px; }
+  .panel h2, .panel summary { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 12px; font-weight: 700; }
+  details.panel summary { cursor: pointer; margin: 0; }
+  details.panel[open] summary { margin-bottom: 12px; }
+  .step { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 11px; margin-right: 6px; letter-spacing: 0; }
   aside { display: flex; flex-direction: column; gap: 16px; position: sticky; top: 70px; }
   @media (max-width: 900px) { aside { position: static; } }
   button { font: inherit; border: 1px solid var(--line); background: var(--panel); color: var(--text); padding: 7px 12px; border-radius: 8px; cursor: pointer; }
   button:hover { border-color: var(--muted); }
   button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+  button.small { padding: 4px 10px; font-size: 12px; }
   button:disabled { opacity: .5; cursor: default; }
   .row { display: flex; gap: 8px; flex-wrap: wrap; }
   label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 3px; }
   input, textarea, select { font: inherit; width: 100%; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); }
   textarea { resize: vertical; }
   .fields { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; }
-  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; margin-top: 12px; }
   .stats b { display: block; font-size: 20px; }
   .stats span { font-size: 12px; color: var(--muted); }
   .log { font: 12px/1.5 ui-monospace, Consolas, monospace; color: var(--muted); max-height: 260px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
@@ -54,12 +58,55 @@
   .tab .n { font-weight: 500; margin-left: 4px; }
   .search { max-width: 220px; margin-left: auto; }
   .muted { color: var(--muted); }
-  .empty { padding: 40px; text-align: center; color: var(--muted); grid-column: 1 / -1; }
+  .empty { padding: 28px; text-align: center; color: var(--muted); grid-column: 1 / -1; border: 1px dashed var(--line); border-radius: 12px; }
   .start-here { padding: 40px; text-align: center; }
   .start-here h2 { font-size: 18px; text-transform: none; letter-spacing: 0; color: var(--text); }
   .start-here p { color: var(--muted); max-width: 460px; margin: 0 auto; }
   .notice { font-size: 13px; background: color-mix(in srgb, var(--warn) 14%, transparent); color: var(--warn); border-radius: 8px; padding: 8px 12px; margin-bottom: 12px; display: flex; gap: 8px; align-items: center; }
   .notice button { margin-left: auto; padding: 4px 10px; font-size: 12px; }
+  .tag { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 99px; background: var(--chip); color: var(--muted); white-space: nowrap; }
+  .tag.on { background: color-mix(in srgb, var(--ok) 15%, transparent); color: var(--ok); }
+  .tag.warn { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
+  .tag.busy { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+
+  /* modo de automatización */
+  .modo { display: flex; gap: 8px; align-items: flex-start; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; margin: 0 0 6px; }
+  .modo:has(input:checked) { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+  .modo input { width: auto; margin-top: 3px; }
+  .modo b { display: block; color: var(--text); font-size: 13px; }
+  .modo span { font-size: 12px; color: var(--muted); }
+
+  /* pestaña Automatización */
+  .how { margin-bottom: 14px; font-size: 13px; }
+  .how summary { cursor: pointer; font-weight: 600; }
+  .how ol { margin: 8px 0 0; padding-left: 20px; color: var(--muted); }
+  .how li { margin-bottom: 4px; }
+  .how li b { color: var(--text); }
+  .summary { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+  .summary .stat { padding: 8px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+  .summary .stat b { display: block; font-size: 18px; line-height: 1.2; }
+  .summary .stat span { font-size: 12px; color: var(--muted); }
+  .sec { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 18px 0 8px; display: flex; align-items: center; gap: 8px; }
+  .sec .n { background: var(--chip); border-radius: 99px; padding: 0 8px; font-size: 12px; letter-spacing: 0; }
+  .alist { display: flex; flex-direction: column; gap: 10px; }
+  .arow { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+  .thumb { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; background: var(--chip); display: grid; place-items: center; color: var(--muted); font-weight: 700; font-size: 20px; }
+  .arow .top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .arow .name { font-weight: 700; font-size: 15px; }
+  .arow .snippet { font-size: 13px; color: var(--muted); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .arow .phase { margin-top: 6px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .arow .draft { margin-top: 8px; }
+  .arow .actions { margin-top: 8px; padding-top: 0; }
+  .mini { display: inline-grid; place-items: center; min-width: 28px; height: 22px; padding: 0 6px; border-radius: 99px; font-weight: 800; font-size: 12px; color: #fff; }
+  .mini.hot { background: var(--hot); } .mini.warm { background: var(--warm); } .mini.cold { background: #77706a; } .mini.zero { background: #4a4541; }
+  .sent { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+  .sent:last-child { border-bottom: none; }
+  .sent b { white-space: nowrap; }
+  .sent .t { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+  .sent time { color: var(--muted); font-size: 12px; white-space: nowrap; }
+  details.paused { margin-top: 18px; }
+  details.paused summary { cursor: pointer; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 700; }
+  details.paused .alist { margin-top: 8px; }
 
   .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
   @media (max-width: 420px) { .gallery { grid-template-columns: 1fr; } }
@@ -116,22 +163,24 @@
   @keyframes spin { to { transform: rotate(360deg); } }
   @media (max-width: 420px) { .toast { left: 16px; right: 16px; width: auto; } }
   .ig-status { display: flex; align-items: center; gap: 8px; font-size: 13px; }
-  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex: none; }
   .dot.on { background: var(--ok); }
+  .dot.busy { background: var(--warn); }
   .ig-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 99px;
              background: color-mix(in srgb, #c13584 16%, transparent); color: #d4589f; text-decoration: none; width: fit-content; }
   .ig-chip:hover { text-decoration: underline; }
   .chat-tabs { display: flex; gap: 4px; padding: 10px 16px 0; }
   .check { display: flex; gap: 8px; align-items: flex-start; }
   .check input { width: auto; margin-top: 3px; }
-  .help { font-size: 12px; color: var(--muted); }
+  .help { font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 </style>
 </head>
 <body>
 <header>
   <h1>Loveworm</h1>
   <span id="status" class="pill">apagado</span>
-  <span id="auto" class="pill" hidden>borradores automáticos</span>
+  <span id="modo-pill" class="pill">modo manual</span>
   <span class="spacer"></span>
   <span id="refreshed" class="muted" style="font-size:12px"></span>
   <button class="icon-btn" id="btn-settings" title="Configuración" aria-label="Configuración">
@@ -142,12 +191,29 @@
 <main>
   <aside>
     <section class="panel">
-      <h2>Bot</h2>
-      <div class="row" style="margin-bottom:12px">
+      <h2><span class="step">1</span>Conexión</h2>
+      <div class="ig-status"><span class="dot" id="conn-dot"></span><span id="conn-text">Navegador cerrado</span></div>
+      <div class="row" style="margin-top:12px">
         <button class="primary" id="btn-start">Iniciar</button>
         <button id="btn-refresh">Actualizar chats</button>
         <button id="btn-close">Cerrar navegador</button>
       </div>
+      <div class="help" id="conn-help"></div>
+    </section>
+
+    <section class="panel">
+      <h2><span class="step">2</span>Modo</h2>
+      <label class="modo"><input type="radio" name="modo" value="manual">
+        <div><b>Manual</b><span>Claude solo analiza a las personas. Vos pedís cada mensaje y lo enviás.</span></div></label>
+      <label class="modo"><input type="radio" name="modo" value="aprobacion">
+        <div><b>Con aprobación</b><span>Claude deja borradores en los chats automatizados. Vos los revisás y tocás Enviar.</span></div></label>
+      <label class="modo"><input type="radio" name="modo" value="auto">
+        <div><b>Automático</b><span>Claude escribe y envía solo en los chats automatizados, con pausas y un tope por día.</span></div></label>
+      <div class="help" id="modo-help"></div>
+    </section>
+
+    <details class="panel">
+      <summary>Swipes (opcional)</summary>
       <div class="fields">
         <div><label for="amount">Likes</label><input id="amount" type="number" min="1" max="500" value="10"></div>
         <div><label for="ratio">Ratio %</label><input id="ratio" type="number" min="0" max="100" step="0.5" value="72.5"></div>
@@ -157,39 +223,37 @@
         <button class="primary" id="btn-swipe">Swipear</button>
         <button id="btn-stop">Detener</button>
       </div>
-    </section>
-
-    <section class="panel" id="ig-panel" hidden>
-      <h2>Instagram</h2>
-      <div class="ig-status"><span class="dot" id="ig-dot"></span><span id="ig-text">No conectado</span></div>
-      <button id="btn-ig" style="margin-top:10px">Conectar Instagram</button>
-      <div class="help" style="margin-top:8px">Solo lectura. Se vinculan los chats de Instagram de las personas que te pasaron su @ por Tinder.</div>
-    </section>
-
-    <section class="panel">
-      <h2>Sesión</h2>
+      <div class="help">Ratio: porcentaje de likes frente a dislikes. Sleep: segundos de pausa entre swipes (varía al azar). Requiere el navegador iniciado.</div>
       <div class="stats">
         <div><b id="st-like">0</b><span>likes</span></div>
         <div><b id="st-dislike">0</b><span>dislikes</span></div>
         <div><b id="st-duration">—</b><span>minutos</span></div>
       </div>
+    </details>
+
+    <section class="panel" id="ig-panel" hidden>
+      <h2>Instagram</h2>
+      <div class="ig-status"><span class="dot" id="ig-dot"></span><span id="ig-text">No conectado</span></div>
+      <button id="btn-ig" style="margin-top:10px">Conectar Instagram</button>
+      <div class="help">Solo lectura. Se vinculan los chats de Instagram de las personas que te pasaron su @ por Tinder.</div>
     </section>
 
-    <section class="panel">
-      <h2>Log</h2>
+    <details class="panel">
+      <summary>Log</summary>
       <div class="log" id="log"></div>
-    </section>
+    </details>
   </aside>
 
   <section class="panel start-here" id="empty-state" hidden>
     <h2>Todavía no hay chats</h2>
-    <p>Tocá <b>Iniciar</b> para abrir el navegador y traer tus chats y matches de Tinder.
+    <p>Tocá <b>Iniciar</b> (paso 1) para abrir el navegador y traer tus chats y matches de Tinder.
        Si no estás logueado, iniciá sesión en el Chrome que se abre (Log in → Google).</p>
   </section>
 
   <section id="content">
     <div class="tabs">
-      <button class="tab active" data-tab="people">Galería<span class="n" id="n-people"></span></button>
+      <button class="tab" data-tab="auto">Automatización<span class="n" id="n-auto-tab"></span></button>
+      <button class="tab" data-tab="people">Galería<span class="n" id="n-people"></span></button>
       <button class="tab" data-tab="new">Matches nuevos<span class="n" id="n-new"></span></button>
       <input class="search" id="search" placeholder="Buscar por nombre">
     </div>
@@ -197,7 +261,39 @@
       Claude está pausado porque llegó al límite de uso de tu suscripción.
       <button id="btn-resume">Reanudar</button>
     </div>
-    <div id="view-people" class="gallery"></div>
+    <div id="notices"></div>
+
+    <div id="view-auto">
+      <details class="how" open>
+        <summary>¿Cómo funciona?</summary>
+        <ol>
+          <li><b>Conexión:</b> iniciá el navegador (paso 1) y traé tus chats.</li>
+          <li><b>Chats automatizados:</b> el bot no atiende todos tus chats, solo unos pocos a la vez. Entran solos
+              según el interés que Claude les calcula, o los sumás vos con <b>Automatizar</b> en la galería.</li>
+          <li><b>Modo:</b> elegí qué hace Claude con esos chats (paso 2): nada, dejar borradores para que los apruebes
+              o escribir y enviar solo.</li>
+          <li><b>Control:</b> desde acá podés pausar un chat, fijarlo para que no rote, descartar un borrador antes de
+              que salga y ver todo lo que se envió.</li>
+        </ol>
+      </details>
+      <div class="summary" id="auto-summary"></div>
+
+      <h3 class="sec" id="h-approve">Esperan tu aprobación<span class="n" id="n-approve"></span></h3>
+      <div class="alist" id="list-approve"></div>
+
+      <h3 class="sec">Chats automatizados<span class="n" id="n-auto"></span></h3>
+      <div class="alist" id="list-auto"></div>
+
+      <details class="paused" id="paused-box">
+        <summary>Pausados o rotados<span class="n" id="n-paused"></span></summary>
+        <div class="alist" id="list-paused"></div>
+      </details>
+
+      <h3 class="sec">Últimos envíos automáticos</h3>
+      <div id="list-sent"></div>
+    </div>
+
+    <div id="view-people" class="gallery" hidden></div>
     <div id="view-new" class="gallery" hidden></div>
   </section>
 </main>
@@ -229,13 +325,21 @@
       <select id="set-model"></select>
       <div class="help">Se usa para analizar a cada persona y escribir borradores. Haiku es el que menos gasta.</div>
     </div>
-    <label class="check"><input type="checkbox" id="set-auto">
-      <span>
-        <b style="color:var(--text)">Borradores automáticos</b><br>
-        Claude arma el primer mensaje para cada match nuevo (a partir de que lo activás) y la respuesta en los chats
-        que empezaste desde acá. Nunca envía nada: cada mensaje sale solo cuando tocás <b>Enviar</b>.
-      </span>
-    </label>
+    <div>
+      <label>Estilo de los mensajes</label>
+      <div id="set-estilo"></div>
+      <div class="help">Se aplica a todo lo que se envía, también a lo que editás a mano, y se le pide a Claude al escribir el borrador.</div>
+    </div>
+    <div>
+      <label>Límites de la automatización</label>
+      <div class="two">
+        <div><label for="set-max" style="font-size:11px">Chats automatizados a la vez</label>
+          <input id="set-max" type="number" min="1" max="20"></div>
+        <div><label for="set-tope" style="font-size:11px">Envíos automáticos por día</label>
+          <input id="set-tope" type="number" min="0" max="200"></div>
+      </div>
+      <div class="help">Al llegar al tope diario, los borradores quedan esperando tu aprobación. El modo (manual, con aprobación o automático) se cambia en el paso 2 del panel izquierdo.</div>
+    </div>
   </div>
   <div class="dlg-foot"><button id="set-cancel">Cancelar</button><button class="primary" id="set-save">Guardar</button></div>
 </dialog>
@@ -246,6 +350,14 @@ let lastState = null;
 let lastRendered = "";
 const photoIndex = new Map();
 const edits = new Map();
+
+const MODOS = {manual: "manual", aprobacion: "con aprobación", auto: "automático"};
+const modoDe = (s) => s.auto_send ? "auto" : s.auto_drafts ? "aprobacion" : "manual";
+
+function storage(op, key, value) {
+  try { return op === "get" ? localStorage.getItem(key) : localStorage.setItem(key, value); } catch (e) { return null; }
+}
+let tab = ["auto", "people", "new"].includes(storage("get", "tab")) ? storage("get", "tab") : "auto";
 
 function el(tag, attrs = {}, ...children) {
   const node = document.createElement(tag);
@@ -267,6 +379,7 @@ function ago(iso) {
 }
 
 async function post(path, body) {
+  if (document.activeElement && document.activeElement.tagName === "BUTTON") document.activeElement.blur();
   const res = await fetch(path, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body || {})});
   if (!res.ok) alert((await res.json().catch(() => ({}))).error || "Error");
   lastRendered = "";
@@ -275,6 +388,9 @@ async function post(path, body) {
 
 const title = (p) => p.name + (p.age ? `, ${p.age}` : "");
 const safePhotos = (p) => (p.photos || []).filter(u => typeof u === "string" && u.startsWith("https://"));
+const tierOf = (n) => n >= 75 ? "hot" : n >= 45 ? "warm" : n > 0 ? "cold" : "zero";
+const cupoUrl = (id, accion) => `/api/cupos/${encodeURIComponent(id)}/${accion}`;
+const snip = (t, n = 90) => t && t.length > n ? t.slice(0, n) + "…" : (t || "");
 
 function carousel(p, overlay) {
   const photos = safePhotos(p);
@@ -309,17 +425,21 @@ function interestBadge(p) {
     const label = {error: "Error al analizar", analizando: "Analizando"}[p.analysis_status] || "En cola";
     return el("div", {class: "badge"}, el("span", {class: "score pend"}, "…"), el("span", {class: "label"}, label));
   }
-  const tier = a.interes >= 75 ? "hot" : a.interes >= 45 ? "warm" : a.interes > 0 ? "cold" : "zero";
-  return el("div", {class: "badge", title: `Interés ${a.interes}/100`}, el("span", {class: "score " + tier}, String(a.interes)), el("span", {class: "label"}, a.senal));
+  return el("div", {class: "badge", title: `Interés ${a.interes}/100`}, el("span", {class: "score " + tierOf(a.interes)}, String(a.interes)), el("span", {class: "label"}, a.senal));
 }
 
-function draftBox(p, firstMessage) {
+// ¿este borrador sale solo, sin que lo apruebe nadie?
+const willSend = (p, s) => s.auto_send && p.cupo === "activa" && s.status !== "apagado" && s.envios_hoy < s.envios_tope;
+
+function draftBox(p, firstMessage, autoSend = false) {
   if (p.draft) {
     const ta = el("textarea", {});
     ta.value = edits.has(p.id) ? edits.get(p.id) : p.draft;
     ta.addEventListener("input", () => edits.set(p.id, ta.value));
+    const label = autoSend ? "Se envía solo en unos segundos · descartalo para cancelarlo"
+      : firstMessage ? "Primer mensaje sugerido" : "Respuesta sugerida";
     return el("div", {class: "draft"},
-      el("div", {class: "lbl"}, firstMessage ? "Primer mensaje sugerido" : "Respuesta sugerida"),
+      el("div", {class: "lbl"}, label),
       ta,
       el("div", {class: "row"},
         el("button", {class: "primary", onclick: () => {
@@ -328,7 +448,7 @@ function draftBox(p, firstMessage) {
           if (!confirm(`¿Enviar este mensaje a ${p.name}?\n\n${text}`)) return;
           edits.delete(p.id);
           post("/api/send", {match_id: p.id, text});
-        }}, "Enviar"),
+        }}, autoSend ? "Enviar ahora" : "Enviar"),
         el("button", {onclick: () => { edits.delete(p.id); post(`/api/drafts/${p.id}/generate`); }}, "Otro"),
         el("button", {onclick: () => { edits.delete(p.id); post(`/api/drafts/${p.id}/discard`); }}, "Descartar")));
   }
@@ -365,6 +485,71 @@ function igChip(p) {
 
 const openInTinder = (id) => el("a", {href: `https://tinder.com/app/messages/${id}`, target: "_blank", rel: "noopener"}, el("button", {}, "Abrir en Tinder"));
 
+// --- automatización por chat ---
+
+function cupoTag(p) {
+  if (p.cupo === "activa") return el("span", {class: "tag on"}, "Automatizado");
+  if (p.cupo === "rotada") return el("span", {class: "tag warn"}, "Pausado");
+  return null;
+}
+
+function cupoButton(p) {
+  if (p.cupo === "activa") {
+    return el("button", {title: "Saca este chat de la automatización. Podés reactivarlo cuando quieras.",
+                         onclick: () => post(cupoUrl(p.id, "soltar"))}, "Pausar");
+  }
+  return el("button", {title: "Suma este chat a los automatizados: el bot lo atiende según el modo elegido y no lo rota por inactividad.",
+                       onclick: () => post(cupoUrl(p.id, "fijar"))}, p.cupo === "rotada" ? "Reactivar" : "Automatizar");
+}
+
+function citaText(c) {
+  if (!c || !["confirmada", "propuesta"].includes(c.estado)) return null;
+  const partes = [];
+  if (c.dia) partes.push(new Date(c.dia + "T00:00").toLocaleDateString("es-AR", {weekday: "short", day: "numeric", month: "numeric"}));
+  if (c.momento) partes.push(`a la ${c.momento}`);
+  if (c.lugar) partes.push(`en ${c.lugar}`);
+  return (c.estado === "confirmada" ? "Cita confirmada" : "Cita propuesta") + (partes.length ? ": " + partes.join(" ") : "");
+}
+
+// qué está haciendo el bot con este chat ahora mismo
+function fase(p, s) {
+  if (p.draft_pending) return ["Claude está escribiendo…", "busy"];
+  if (p.draft) return willSend(p, s) ? ["Borrador listo: se envía solo", "on"] : ["Borrador esperando tu aprobación", "warn"];
+  if (p.draft_error) return ["No se pudo escribir: " + p.draft_error, "warn"];
+  if (p.analysis_status === "pendiente" || p.analysis_status === "analizando") return ["Claude la está analizando", "busy"];
+  if (p.esperando || p.last_from_me === true) return ["Esperando que conteste", ""];
+  if (!s.auto_drafts) return ["Te toca a vos (modo manual)", "warn"];
+  return ["Sin borrador todavía: tocá «Sugerir ahora»", "warn"];
+}
+
+function personRow(p, s, extra = {}) {
+  const [texto, tono] = fase(p, s);
+  const photo = safePhotos(p)[0];
+  const cita = citaText(p.cita);
+  const score = p.analysis_status === "ok" && p.analysis ? p.analysis.interes : null;
+  const autoSend = willSend(p, s);
+  return el("article", {class: "arow"},
+    photo ? el("img", {class: "thumb", src: photo, alt: "", loading: "lazy", referrerpolicy: "no-referrer"})
+          : el("div", {class: "thumb"}, (p.name || "?")[0]),
+    el("div", {},
+      el("div", {class: "top"},
+        el("span", {class: "name"}, title(p)),
+        (extra.score ?? score) != null ? el("span", {class: "mini " + tierOf(extra.score ?? score), title: "Interés 0–100"}, String(extra.score ?? score)) : null,
+        extra.fijada ? el("span", {class: "tag", title: "No rota aunque deje de responder"}, "Fijado") : null),
+      p.last_text ? el("div", {class: "snippet"}, (p.last_from_me ? "Vos: " : "Ella: ") + snip(p.last_text)) : null,
+      el("div", {class: "phase"},
+        el("span", {class: "tag " + tono}, texto),
+        cita ? el("span", {class: "tag on"}, cita) : null),
+      !extra.sinBorrador && (p.draft || p.draft_pending) ? el("div", {style: "margin-top:8px"}, draftBox(p, !p.message_count, autoSend)) : null,
+      el("div", {class: "actions"},
+        p.message_count ? el("button", {onclick: () => openChat(p)}, "Ver chat") : null,
+        !p.draft && !p.draft_pending ? el("button", {onclick: () => post(`/api/drafts/${p.id}/generate`)}, "Sugerir ahora") : null,
+        extra.fijada != null ? el("button", {title: extra.fijada ? "Vuelve a rotar si deja de responder" : "No rota aunque deje de responder",
+          onclick: () => post(cupoUrl(p.id, extra.fijada ? "desfijar" : "fijar"))}, extra.fijada ? "Quitar fijado" : "Fijar") : null,
+        cupoButton(p),
+        openInTinder(p.id))));
+}
+
 function personCard(p) {
   const a = p.analysis_status === "ok" ? p.analysis : null;
   const overlay = [interestBadge(p)];
@@ -389,12 +574,14 @@ function personCard(p) {
     el("div", {class: "body"},
       el("div", {}, el("div", {class: "name"}, title(p)),
         el("div", {class: "meta"}, `${p.message_count} mensajes · último ${ago(p.last_sent)}`)),
+      cupoTag(p),
       igChip(p),
       ...about,
-      draftBox(p, false),
+      draftBox(p, false, lastState ? willSend(p, lastState) : false),
       el("div", {class: "actions"},
         el("button", {onclick: () => openChat(p)}, "Ver chat"),
         !p.draft && !p.draft_pending ? el("button", {onclick: () => post(`/api/drafts/${p.id}/generate`)}, "Sugerir respuesta") : null,
+        cupoButton(p),
         el("button", {onclick: () => post(`/api/reanalyze/${p.id}`)}, "Reanalizar"),
         openInTinder(p.id))));
 }
@@ -404,10 +591,12 @@ function newMatchCard(p) {
     carousel(p, []),
     el("div", {class: "body"},
       el("div", {}, el("div", {class: "name"}, title(p)), el("div", {class: "meta"}, "match " + ago(p.matched))),
+      cupoTag(p),
       p.bio ? el("div", {class: "txt"}, p.bio) : el("div", {class: "pending"}, "Sin bio"),
-      draftBox(p, true),
+      draftBox(p, true, lastState ? willSend(p, lastState) : false),
       el("div", {class: "actions"},
         !p.draft && !p.draft_pending ? el("button", {onclick: () => post(`/api/drafts/${p.id}/generate`)}, "Sugerir primer mensaje") : null,
+        cupoButton(p),
         openInTinder(p.id))));
 }
 
@@ -415,19 +604,113 @@ function renderGallery(view, list, card, emptyText) {
   view.replaceChildren(...(list.length ? list.map(card) : [el("div", {class: "empty"}, emptyText)]));
 }
 
+// --- pestaña Automatización ---
+
+function renderAuto(s) {
+  const byId = new Map([...s.people, ...s.new].map(p => [p.id, p]));
+  const modo = modoDe(s);
+  const c = s.cupos;
+
+  $("auto-summary").replaceChildren(
+    el("div", {class: "stat"}, el("b", {}, `${c.usados} de ${c.cupo}`), el("span", {}, "chats automatizados")),
+    el("div", {class: "stat"}, el("b", {}, `${s.envios_hoy} de ${s.envios_tope}`), el("span", {}, "envíos automáticos hoy")),
+    el("div", {class: "stat"}, el("b", {}, MODOS[modo]), el("span", {}, "modo actual")));
+
+  // borradores que nadie va a mandar solos: esperan tu OK
+  const aprobar = [...s.people, ...s.new].filter(p => p.draft && !willSend(p, s));
+  $("h-approve").hidden = $("list-approve").hidden = !aprobar.length;
+  $("n-approve").textContent = aprobar.length;
+  $("list-approve").replaceChildren(...aprobar.map(p => personRow(p, s)));
+
+  $("n-auto").textContent = `${c.usados}/${c.cupo}`;
+  // el borrador de un chat que espera tu OK se muestra una sola vez, arriba
+  const enBandeja = new Set(aprobar.map(p => p.id));
+  $("list-auto").replaceChildren(...(c.detalle.length
+    ? c.detalle.map(d => personRow(byId.get(d.id) || {id: d.id, name: d.nombre, cupo: "activa"}, s,
+        {score: d.score, fijada: d.fijada, sinBorrador: enBandeja.has(d.id)}))
+    : [el("div", {class: "empty"},
+        "Todavía no hay chats automatizados. Entran solos al actualizar los chats (los de más interés primero) " +
+        "o los sumás vos con «Automatizar» en la galería.")]));
+
+  $("paused-box").hidden = !c.pausadas.length;
+  $("n-paused").textContent = c.rotadas ? ` (${c.rotadas})` : "";
+  $("list-paused").replaceChildren(...c.pausadas.map(d => {
+    const p = byId.get(d.id) || {id: d.id, name: d.nombre};
+    return el("article", {class: "arow"},
+      el("div", {class: "thumb"}, (d.nombre || "?")[0]),
+      el("div", {},
+        el("div", {class: "top"}, el("span", {class: "name"}, d.nombre),
+          el("span", {class: "tag warn"}, d.motivo || "pausado"), el("span", {class: "muted"}, ago(d.fecha))),
+        el("div", {class: "actions"},
+          el("button", {title: "Vuelve a los chats automatizados y no rota por inactividad", onclick: () => post(cupoUrl(d.id, "fijar"))}, "Reactivar"),
+          p.message_count ? el("button", {onclick: () => openChat(p)}, "Ver chat") : null,
+          openInTinder(d.id))));
+  }));
+
+  $("list-sent").replaceChildren(...(s.envios_ultimos.length
+    ? s.envios_ultimos.map(e => el("div", {class: "sent"},
+        el("b", {}, e.nombre), el("span", {class: "t", title: e.texto}, e.texto),
+        el("time", {}, ago(e.fecha))))
+    : [el("div", {class: "muted"}, "Todavía no se envió nada automáticamente.")]));
+}
+
+// avisos que dependen del estado, arriba de las pestañas
+function renderNotices(s) {
+  const modo = modoDe(s);
+  const avisos = [];
+  if (modo === "auto" && s.status === "apagado") {
+    avisos.push(["El modo automático está activo, pero el navegador está cerrado: no se envía nada hasta que lo inicies.", "Iniciar", () => post("/api/start")]);
+  }
+  if (modo === "auto" && s.envios_hoy >= s.envios_tope) {
+    avisos.push([`Llegaste al tope de ${s.envios_tope} envíos automáticos de hoy. Los borradores esperan tu aprobación.`]);
+  }
+  const key = JSON.stringify(avisos.map(a => a[0]));
+  if (key === renderNotices.last) return;  // no recrear los botones en cada consulta
+  renderNotices.last = key;
+  $("notices").replaceChildren(...avisos.map(([txt, label, fn]) =>
+    el("div", {class: "notice"}, txt, label ? el("button", {onclick: fn}, label) : null)));
+}
+
+function setTab(t) {
+  tab = t;
+  storage("set", "tab", t);
+  document.querySelectorAll(".tabs .tab").forEach(b => b.classList.toggle("active", b.dataset.tab === t));
+  $("view-auto").hidden = t !== "auto";
+  $("view-people").hidden = t !== "people";
+  $("view-new").hidden = t !== "new";
+}
+
 function render(s) {
   if (!s) return;
-  const busy = s.job && s.job !== "start" || s.status === "esperando login" || s.status === "abriendo navegador";
-  $("status").textContent = s.status + (s.progress ? ` ${s.progress}` : "") + (s.pending_jobs ? ` (+${s.pending_jobs})` : "");
-  $("status").className = "pill " + (s.status === "apagado" ? "" : busy ? "busy" : "on");
-  $("auto").hidden = !s.auto_drafts;
+  const modo = modoDe(s);
   const on = s.status !== "apagado";
+  const busy = s.job && s.job !== "start" || s.status === "esperando login" || s.status === "abriendo navegador";
+
+  $("status").textContent = s.status + (s.progress ? ` ${s.progress}` : "") + (s.pending_jobs ? ` (+${s.pending_jobs})` : "");
+  $("status").className = "pill " + (!on ? "" : busy ? "busy" : "on");
+  $("modo-pill").textContent = "modo " + MODOS[modo];
+  $("modo-pill").className = "pill " + (modo === "auto" ? "on" : modo === "aprobacion" ? "busy" : "");
+
+  // paso 1: conexión
+  $("conn-dot").className = "dot" + (!on ? "" : busy ? " busy" : " on");
+  $("conn-text").textContent = !on ? "Navegador cerrado" : s.status === "esperando login" ? "Esperando que inicies sesión" : "Conectado a Tinder";
+  $("conn-help").textContent = !on
+    ? "Abre Chrome con Tinder. La primera vez, iniciá sesión a mano (Log in → Google)."
+    : s.status === "esperando login" ? "Iniciá sesión en la ventana de Chrome que se abrió."
+    : "Con «Actualizar chats» se traen los chats y matches nuevos.";
   $("btn-start").disabled = on;
   $("btn-refresh").disabled = !on;
   $("btn-close").disabled = !on;
   $("btn-swipe").disabled = !on;
   $("btn-stop").disabled = s.status !== "swipeando";
   $("refreshed").textContent = s.last_refresh ? "Chats: " + ago(s.last_refresh) : "";
+
+  // paso 2: modo
+  document.querySelectorAll("input[name=modo]").forEach(r => r.checked = r.value === modo);
+  $("modo-help").textContent = modo === "auto"
+    ? `Hoy: ${s.envios_hoy} de ${s.envios_tope} mensajes enviados. Cada chat se puede pausar en la pestaña Automatización.`
+    : modo === "aprobacion" ? "Nada se envía sin que toques Enviar." : "Claude no escribe borradores solo; los pedís desde cada chat.";
+
   $("ig-panel").hidden = !s.instagram_enabled;
   $("ig-dot").className = "dot" + (s.instagram ? " on" : "");
   $("ig-text").textContent = s.instagram
@@ -460,19 +743,25 @@ function render(s) {
   $("empty-state").hidden = !nothing;
   $("content").hidden = nothing;
 
+  $("n-auto-tab").textContent = s.cupos.usados;
   $("n-people").textContent = s.people.length;
   $("n-new").textContent = s.new.length;
   $("paused").hidden = !s.llm_paused;
+  renderNotices(s);
+  setTab(tab);
 
   const q = $("search").value.trim().toLowerCase();
   const filter = (x) => !q || x.name.toLowerCase().includes(q);
   const people = s.people.filter(filter), fresh = s.new.filter(filter);
 
-  // rebuild the cards only when something changed, and never while a draft is being edited
-  const key = JSON.stringify([people, fresh]);
-  const editing = document.activeElement && document.activeElement.closest && document.activeElement.closest(".draft");
+  // rebuild the lists only when something changed, and never while a draft is being edited
+  const key = JSON.stringify([people, fresh, s.cupos, s.envios_ultimos, s.envios_hoy, s.envios_tope, modo, on, s.llm_paused]);
+  // solo frena si estás escribiendo en el borrador; un botón con foco (Descartar, Enviar) no cuenta
+  const active = document.activeElement;
+  const editing = active && active.tagName === "TEXTAREA" && active.closest(".draft");
   if (key === lastRendered || editing) return;
   lastRendered = key;
+  renderAuto(s);
   renderGallery($("view-people"), people, personCard,
     s.status === "actualizando chats" ? "Cargando chats…" : "No hay chats. Iniciá el bot y tocá «Actualizar chats».");
   renderGallery($("view-new"), fresh, newMatchCard, "No hay matches sin chat.");
@@ -493,16 +782,30 @@ async function openSettings() {
   $("set-instructions").value = s.instructions;
   $("set-model").replaceChildren(...s.models.map(m => el("option", {value: m}, m)));
   $("set-model").value = s.model;
-  $("set-auto").checked = s.auto_drafts;
+  $("set-max").value = s.max_activas;
+  $("set-tope").value = s.tope_diario;
+  $("set-estilo").replaceChildren(...Object.entries(s.estilo_reglas).map(([name, desc]) =>
+    el("label", {class: "check"},
+      el("input", {type: "checkbox", "data-regla": name, ...(s.estilo[name] ? {checked: ""} : {})}),
+      el("span", {}, desc))));
   $("settings-dlg").showModal();
 }
 
-document.querySelectorAll(".tab").forEach(b => b.addEventListener("click", () => {
-  document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t === b));
-  $("view-people").hidden = b.dataset.tab !== "people";
-  $("view-new").hidden = b.dataset.tab !== "new";
-}));
-$("search").addEventListener("input", () => render(lastState));
+async function setModo(modo) {
+  const s = lastState;
+  if (modo === "auto" && !confirm(
+      `Modo automático: el bot va a escribir y enviar mensajes por Tinder sin que los apruebes, ` +
+      `hasta ${s.envios_tope} por día y solo en los ${s.cupos.cupo} chat(s) automatizados.\n\n` +
+      `Podés pausar cualquier chat o cambiar de modo cuando quieras. ¿Activarlo?`)) {
+    render(s);  // vuelve la selección al modo anterior
+    return;
+  }
+  await post("/api/settings", {auto_drafts: modo !== "manual", auto_send: modo === "auto"});
+}
+
+document.querySelectorAll(".tabs .tab").forEach(b => b.addEventListener("click", () => setTab(b.dataset.tab)));
+document.querySelectorAll("input[name=modo]").forEach(r => r.addEventListener("change", () => setModo(r.value)));
+$("search").addEventListener("input", () => { lastRendered = ""; render(lastState); });
 $("btn-start").onclick = () => post("/api/start");
 $("btn-refresh").onclick = () => post("/api/refresh");
 $("btn-close").onclick = () => post("/api/close");
@@ -514,7 +817,9 @@ $("btn-ig").onclick = () => post("/api/instagram/connect");
 $("chat-close").onclick = () => $("chat-dlg").close();
 $("set-cancel").onclick = () => $("settings-dlg").close();
 $("set-save").onclick = async () => {
-  await post("/api/settings", {instructions: $("set-instructions").value, model: $("set-model").value, auto_drafts: $("set-auto").checked});
+  const estilo = Object.fromEntries([...document.querySelectorAll("#set-estilo input")].map(i => [i.dataset.regla, i.checked]));
+  await post("/api/settings", {instructions: $("set-instructions").value, model: $("set-model").value, estilo,
+                               max_activas: $("set-max").value, tope_diario: $("set-tope").value});
   $("settings-dlg").close();
 };
 

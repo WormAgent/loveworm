@@ -10,14 +10,17 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timezone
 from pathlib import Path
 
-from loveworm.helpers import citas
-from loveworm.helpers.cupos import Cupos
+from loveworm.helpers import citas, estilo
+from loveworm.helpers.cupos import MAX_ACTIVAS, Cupos
 from loveworm.helpers.instagram_web import InstagramWeb, extract_handles
 from loveworm.helpers.llm import LLMError, analyze_person, draft_message
 from loveworm.helpers.tinder_api import TinderApi
 
 # bump when the analysis schema changes so every person gets re-analyzed
 ANALYSIS_VERSION = "persona-v2"
+
+# techo de envíos automáticos por día, para que el bot no se suelte
+AUTO_SEND_MAX_DIA = 12
 
 DEFAULT_SETTINGS = {
     "instructions": (
@@ -32,6 +35,11 @@ DEFAULT_SETTINGS = {
     "auto_drafts": False,
     # when on, the bot sends the draft by itself instead of waiting for the Enviar click
     "auto_send": False,
+    # cuántos chats automatiza el bot a la vez, y cuántos mensajes puede mandar solo por día
+    "max_activas": MAX_ACTIVAS,
+    "tope_diario": AUTO_SEND_MAX_DIA,
+    # reglas de escritura que se aplican a todo lo que se envía (ver helpers/estilo.py)
+    "estilo": estilo.DEFAULT_ESTILO,
     "drafts_since": None,
     # set once the instagram tab logged in; refreshes then also read instagram
     "instagram": False,
@@ -48,8 +56,6 @@ IG_REREAD_SECONDS = 24 * 3600
 
 # pausa antes de mandar solo, para no disparar en el mismo segundo en que claude terminó
 PAUSA_ENVIO = (8, 30)
-# techo de envíos automáticos por día, para que el bot no se suelte
-AUTO_SEND_MAX_DIA = 12
 
 
 def _error_de_sesion(msg):
@@ -112,7 +118,7 @@ class Bot:
         self.settings = self._load_settings()
         self.envios = self._load_envios()
         # la política que mantiene 5 conversaciones vivas y rota al que no contesta
-        self.cupos = Cupos(self.root / "data" / "cupos.json")
+        self.cupos = Cupos(self.root / "data" / "cupos.json", max_activas=self.settings["max_activas"])
 
         self.lock = threading.Lock()
         self.jobs = queue.Queue()
@@ -166,6 +172,7 @@ class Bot:
         self._schedule_llm()
 
     def discard_draft(self, match_id):
+        """Descarta el borrador. Si el envío automático todavía no salió, lo cancela."""
         with self.lock:
             entry = self.cache.get(match_id)
             if entry:
@@ -179,6 +186,11 @@ class Bot:
         self.cupos.fijar(match_id)
         self.log(f"Cupo fijado: {self.cache.get(match_id, {}).get('name', '?')}.")
         self._schedule_llm()
+        self._enviar_borradores_pendientes()
+
+    def desfijar_cupo(self, match_id):
+        self.cupos.desfijar(match_id)
+        self.log(f"Cupo sin fijar: {self.cache.get(match_id, {}).get('name', '?')} puede rotar.")
 
     def soltar_cupo(self, match_id):
         self.cupos.soltar(match_id)
@@ -201,20 +213,40 @@ class Bot:
         self._schedule_llm()
 
     def get_settings(self):
-        return dict(self.settings, models=MODELS)
+        return dict(self.settings, estilo=estilo.completar(self.settings.get("estilo")),
+                    estilo_reglas=estilo.descripciones(), models=MODELS)
 
-    def update_settings(self, instructions, model, auto_drafts, auto_send=None):
-        if model not in MODELS:
+    def update_settings(self, instructions=None, model=None, auto_drafts=None, auto_send=None,
+                        estilo_opts=None, max_activas=None, tope_diario=None):
+        """Guarda solo lo que viene (None = se conserva), así cada control de la interfaz
+        puede cambiar lo suyo sin pisar el resto."""
+        if model is not None and model not in MODELS:
             raise ValueError("Modelo inválido")
+        for nombre, valor, minimo, maximo in (("max_activas", max_activas, 1, 20), ("tope_diario", tope_diario, 0, 200)):
+            if valor is not None and not minimo <= valor <= maximo:
+                raise ValueError(f"{nombre} tiene que estar entre {minimo} y {maximo}")
+        if auto_send:
+            auto_drafts = True  # el envío automático sale de un borrador
         if auto_drafts and not self.settings["auto_drafts"]:
             # only matches that arrive from now on get an opener
             self.settings["drafts_since"] = _now_iso()
-        self.settings.update(instructions=instructions.strip() or DEFAULT_SETTINGS["instructions"],
-                             model=model, auto_drafts=auto_drafts)
-        if auto_send is not None:
-            self.settings["auto_send"] = bool(auto_send)
+        encendio_auto = bool(auto_send) and not self.settings["auto_send"]
+        nuevos = {"instructions": None if instructions is None
+                  else instructions.strip() or DEFAULT_SETTINGS["instructions"],
+                  "model": model, "auto_drafts": auto_drafts, "auto_send": auto_send,
+                  "estilo": None if estilo_opts is None else estilo.completar(estilo_opts),
+                  "max_activas": max_activas, "tope_diario": tope_diario}
+        self.settings.update({k: v for k, v in nuevos.items() if v is not None})
+        if auto_drafts is False:
+            self.settings["auto_send"] = False  # sin borradores no hay nada que enviar
+        self.cupos.max_activas = self.settings["max_activas"]
         self._save_settings()
         self.log("Configuración guardada.")
+        if max_activas is not None:
+            self._revisar_cupos()
+        if encendio_auto:
+            # los borradores que ya estaban escritos salen ahora, sin tener que regenerarlos
+            self._enviar_borradores_pendientes()
         self._schedule_llm()
 
     def _save_settings(self):
@@ -252,7 +284,8 @@ class Bot:
             "citas": agendas,
             "cupos": cupos,
             "envios_hoy": self._envios_hoy(),
-            "envios_tope": AUTO_SEND_MAX_DIA,
+            "envios_tope": self.settings["tope_diario"],
+            "envios_ultimos": self.envios.get("ultimos", [])[:10],
             "people": people,
             "new": new,
         }
@@ -420,6 +453,8 @@ class Bot:
         # la política decide quiénes quedan en juego antes de pedir borradores
         self._revisar_cupos()
         self._schedule_llm()
+        # borradores que quedaron escritos de antes (por ejemplo, tras reiniciar el dashboard)
+        self._enviar_borradores_pendientes()
         if INSTAGRAM_ENABLED and self.settings["instagram"]:
             self.jobs.put(("refresh_instagram", {}))
 
@@ -504,18 +539,19 @@ class Bot:
             nombre = (self.cache.get(match_id) or {}).get("name", "?")
 
         if auto:
-            # el borrador pudo quedar viejo mientras esperaba el turno en la cola
-            with self.lock:
-                actual = (self.cache.get(match_id, {}).get("draft") or {}).get("text")
-            if actual and actual != text:
-                self.log(f"Envío automático a {nombre} descartado: el borrador cambió.")
-                return
             if self.cupos.estado(match_id) != "activa":
                 self.log(f"Envío automático a {nombre} descartado: le liberaron el cupo.")
                 return
             time.sleep(random.uniform(*PAUSA_ENVIO))
+            # se vuelve a chequear DESPUÉS de la pausa: tenés esos segundos para arrepentirte
+            # descartando el borrador, o por si llegó un mensaje nuevo en el medio
+            with self.lock:
+                actual = (self.cache.get(match_id, {}).get("draft") or {}).get("text")
+            if actual != text:
+                self.log(f"Envío automático a {nombre} cancelado: el borrador ya no está.")
+                return
 
-        TinderApi(self._tab("tinder")).send_message(match_id, text)
+        TinderApi(self._tab("tinder")).send_message(match_id, text, estilo_opts=self.settings.get("estilo"))
         with self.lock:
             entry = self.cache.setdefault(match_id, {})
             entry.pop("draft", None)
@@ -523,6 +559,8 @@ class Bot:
             # chats opened or answered from the dashboard keep getting reply drafts
             entry["managed"] = True
             entry["ultimo_envio_auto"] = auto
+            # hasta que conteste o llegue algo nuevo, no se le vuelve a escribir
+            entry["esperando"] = _chat_key(entry)
         if auto:
             self._registrar_envio(match_id, nombre, text)
         self._save_cache()
@@ -564,6 +602,9 @@ class Bot:
             "draft_pending": bool(entry.get("draft_queued")),
             "draft_error": entry.get("draft_error"),
             "managed": entry.get("managed", False),
+            # ya le escribimos y no contestó: el bot espera sin insistir
+            "esperando": entry.get("esperando") == _chat_key(entry),
+            "ultimo_envio_auto": bool(entry.get("ultimo_envio_auto")),
         }
 
     def _wants_draft(self, mid, entry):
@@ -571,8 +612,11 @@ class Bot:
         if entry.get("draft") or entry.get("draft_error") or entry.get("draft_dismissed") == _draft_key(entry):
             return False
         if entry.get("draft_requested"):
-            return True  # pedido a mano, no importa el cupo
+            return True  # pedido a mano: no importa el cupo ni si ya le escribimos
         if self.cupos.estado(mid) != "activa":
+            return False
+        # ya le escribimos y todavía no contestó: nada de doble texto
+        if entry.get("esperando") == _chat_key(entry):
             return False
         if not self.settings["auto_drafts"]:
             return False
@@ -665,7 +709,8 @@ class Bot:
         name, gender, bio, msgs, _, key = self._snapshot(match_id)
         cita = citas.leer(self.cache.get(match_id, {}))
         text = self._call_llm(match_id, "draft", lambda: draft_message(
-            name, gender, bio, msgs, self.settings["instructions"], model=self.settings["model"], cita=cita))
+            name, gender, bio, msgs, self.settings["instructions"], model=self.settings["model"], cita=cita,
+            estilo_opts=self.settings.get("estilo")))
         if text:
             with self.lock:
                 entry = self.cache[match_id]
@@ -675,13 +720,29 @@ class Bot:
 
             if self._auto_envia(match_id):
                 self.jobs.put(("send", {"match_id": match_id, "text": text, "auto": True}))
-            elif self.settings["auto_send"]:
-                motivo = "tope diario alcanzado" if not self._puede_enviar_auto() else "no está activa"
+            else:
+                motivo = ("envío automático apagado" if not self.settings["auto_send"]
+                          else "tope diario alcanzado" if not self._puede_enviar_auto()
+                          else "no está activa")
                 self.log(f"Borrador de {name} queda para revisar ({motivo}).")
 
     def _auto_envia(self, match_id):
         return (self.settings["auto_send"] and self._puede_enviar_auto()
                 and self.cupos.estado(match_id) == "activa" and self._browser_alive())
+
+    def _enviar_borradores_pendientes(self):
+        """Manda los borradores que ya estaban escritos y esperando turno.
+
+        Sirve al prender el envío automático, o al reiniciar con borradores colgados.
+        """
+        with self.lock:
+            pendientes = [(mid, (e.get("draft") or {}).get("text")) for mid, e in self.cache.items()
+                          if (e.get("draft") or {}).get("text")]
+        for mid, texto in pendientes:
+            if self._auto_envia(mid):
+                nombre = self.cache.get(mid, {}).get("name", "?")
+                self.log(f"Se encola el borrador que estaba esperando de {nombre}.")
+                self.jobs.put(("send", {"match_id": mid, "text": texto, "auto": True}))
 
     # --- tope diario de envíos automáticos ---
 
@@ -689,7 +750,7 @@ class Bot:
         return self.envios.get("n", 0) if self.envios.get("fecha") == date.today().isoformat() else 0
 
     def _puede_enviar_auto(self):
-        return self._envios_hoy() < AUTO_SEND_MAX_DIA
+        return self._envios_hoy() < self.settings["tope_diario"]
 
     def _registrar_envio(self, match_id, nombre, texto):
         hoy = date.today().isoformat()

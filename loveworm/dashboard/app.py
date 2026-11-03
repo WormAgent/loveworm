@@ -107,6 +107,12 @@ def fijar_cupo(match_id):
     return jsonify(ok=True)
 
 
+@app.post("/api/cupos/<match_id>/desfijar")
+def desfijar_cupo(match_id):
+    bot.desfijar_cupo(match_id)
+    return jsonify(ok=True)
+
+
 @app.post("/api/cupos/<match_id>/soltar")
 def soltar_cupo(match_id):
     bot.soltar_cupo(match_id)
@@ -133,13 +139,17 @@ def get_settings():
 @app.post("/api/settings")
 def save_settings():
     body = request.get_json(force=True)
+
+    def campo(nombre, tipo):
+        # lo que no viene se conserva: cada control de la interfaz manda solo lo suyo
+        return tipo(body[nombre]) if body.get(nombre) is not None else None
+
     try:
-        bot.update_settings(instructions=str(body.get("instructions", "")),
-                            model=str(body.get("model", "haiku")),
-                            auto_drafts=bool(body.get("auto_drafts", False)),
-                            # la interfaz vieja no manda auto_send: si no viene, se conserva
-                            auto_send=bool(body["auto_send"]) if "auto_send" in body else None)
-    except ValueError as e:
+        bot.update_settings(instructions=campo("instructions", str), model=campo("model", str),
+                            auto_drafts=campo("auto_drafts", bool), auto_send=campo("auto_send", bool),
+                            estilo_opts=body.get("estilo"), max_activas=campo("max_activas", int),
+                            tope_diario=campo("tope_diario", int))
+    except (TypeError, ValueError) as e:
         return jsonify(ok=False, error=str(e)), 400
     return jsonify(ok=True)
 
