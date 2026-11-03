@@ -134,7 +134,8 @@ class Filtro:
         self.cfg = completar(opciones)
         self.log = log
         self.root = Path(root) / "data"
-        self.cache_path = self.root / "fisico_cache.json"
+        # v2: las probabilidades son la mejor foto de cada rasgo; las de v1 eran promedios y no sirven
+        self.cache_path = self.root / "fisico_cache_v2.json"
         self.swipes_path = self.root / "fisico_swipes.jsonl"
         self.cache = self._cargar_cache()
         self.vistos = 0
@@ -243,12 +244,13 @@ class Filtro:
         return imagen.crop((margen_x, margen_y, ancho - margen_x, alto - margen_y))
 
     def _evaluar(self, fotos):
-        """Probabilidad por atributo, promediada sobre las fotos. None si no bajó ninguna."""
+        """Probabilidad por atributo, tomando la mejor foto de cada uno (si se ve en una, cuenta).
+        None si no bajó ninguna."""
         self.ultimo_error = None
         vectores, indices, modelo = self._vectores_texto()
         torch = _modelo[3]
         preproceso = _modelo[1]
-        suma = {nombre: 0.0 for nombre in ATRIBUTOS}
+        mejor = {nombre: 0.0 for nombre in ATRIBUTOS}
         usadas = 0
         for url in fotos:
             try:
@@ -265,12 +267,13 @@ class Filtro:
             inicio = 0
             for nombre, total, positivas in indices:
                 tramo = logits[inicio:inicio + total]
-                suma[nombre] += float(tramo.softmax(dim=-1)[:positivas].sum())
+                p = float(tramo.softmax(dim=-1)[:positivas].sum())
+                mejor[nombre] = max(mejor[nombre], p)
                 inicio += total
             usadas += 1
         if not usadas:
             return None
-        return {nombre: round(valor / usadas, 3) for nombre, valor in suma.items()}
+        return {nombre: round(valor, 3) for nombre, valor in mejor.items()}
 
     def _veredicto(self, probabilidades):
         corte = self.cfg["corte"]
