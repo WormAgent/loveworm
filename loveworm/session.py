@@ -5,7 +5,7 @@ import undetected_chromedriver as uc
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
-from selenium.common.exceptions import NoSuchElementException, TimeoutException, ElementNotVisibleException
+from selenium.common.exceptions import NoSuchElementException, TimeoutException, ElementNotVisibleException, SessionNotCreatedException
 from selenium.webdriver.common.by import By
 
 
@@ -14,6 +14,7 @@ import os
 import platform
 import time
 import random
+import re
 import requests
 import atexit
 from pathlib import Path
@@ -72,9 +73,29 @@ class Session:
             # Close browser properly
             self.browser.quit()
 
-        # Go further with the initialisation
-        # Setting some options of the browser here below
+        # Getting the chromedriver from cache or download it from internet
+        print("Getting ChromeDriver ...")
+        try:
+            self.browser = uc.Chrome(options=self._options(store_session, user_data, headless, proxy))
+        except SessionNotCreatedException as e:
+            # uc baja el driver de la última versión de Chrome; si el instalado es otra, reintenta con esa
+            m = re.search(r"Current browser version is (\d+)", str(e))
+            if not m:
+                raise
+            print(f"ChromeDriver no coincide, reintentando para Chrome {m.group(1)} ...")
+            self.browser = uc.Chrome(options=self._options(store_session, user_data, headless, proxy),
+                                     version_main=int(m.group(1)))
 
+        # Cool banner
+        print(Printouts.BANNER.value)
+        time.sleep(1)
+
+        self.started = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+        print("Started session: {}\n\n".format(self.started))
+
+    # uc no deja reusar unas ChromeOptions entre intentos, así que se arman de cero cada vez
+    @staticmethod
+    def _options(store_session, user_data, headless, proxy):
         options = uc.ChromeOptions()
 
         # Create empty profile to avoid annoying Mac Popup
@@ -108,22 +129,7 @@ class Session:
                 options.add_extension(extension)
             else:
                 options.add_argument(f'--proxy-server=http://{proxy}')
-
-        # Getting the chromedriver from cache or download it from internet
-        print("Getting ChromeDriver ...")
-        self.browser = uc.Chrome(options=options)  # ChromeDriverManager().install(),
-        # self.browser = webdriver.Chrome(options=options)
-        # self.browser.set_window_size(1250, 750)
-
-        # clear the console based on the operating system you're using
-        #os.system('cls' if os.name == 'nt' else 'clear')
-
-        # Cool banner
-        print(Printouts.BANNER.value)
-        time.sleep(1)
-
-        self.started = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-        print("Started session: {}\n\n".format(self.started))
+        return options
 
     # Setting a custom location
     def set_custom_location(self, latitude, longitude, accuracy="100%"):
