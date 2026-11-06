@@ -174,6 +174,22 @@
   .check input { width: auto; margin-top: 3px; }
   .help { font-size: 12px; color: var(--muted); margin-top: 6px; }
   .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  /* pestaña Swipes */
+  .sw-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+  .sw-grid .panel h3 { margin: 0 0 4px; font-size: 15px; }
+  .sw-grid .panel > .muted { font-size: 13px; margin: 0 0 12px; }
+  .sw-grid .fields { grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); }
+  .sw-switch { display: flex; gap: 8px; align-items: center; font-weight: 600; color: var(--text); font-size: 14px; margin-bottom: 12px; cursor: pointer; }
+  .sw-switch input { width: auto; margin: 0; }
+  .sw-estado { font-size: 13px; padding: 8px 12px; border-radius: 8px; background: var(--chip); margin-top: 10px; }
+  .sw-estado.on { background: color-mix(in srgb, var(--ok) 14%, transparent); color: var(--ok); }
+  .meter { height: 6px; border-radius: 99px; background: var(--chip); overflow: hidden; margin-top: 6px; }
+  .meter div { height: 100%; background: var(--accent); }
+  .days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; align-items: end; height: 90px; margin-top: 8px; }
+  .days .d { display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; font-size: 11px; color: var(--muted); }
+  .days .bar { width: 100%; max-width: 28px; border-radius: 4px 4px 0 0; background: var(--accent); min-height: 2px; }
+  .days .d.today { color: var(--text); font-weight: 700; }
 </style>
 </head>
 <body>
@@ -212,25 +228,6 @@
       <div class="help" id="modo-help"></div>
     </section>
 
-    <details class="panel">
-      <summary>Swipes (opcional)</summary>
-      <div class="fields">
-        <div><label for="amount">Likes</label><input id="amount" type="number" min="1" max="500" value="10"></div>
-        <div><label for="ratio">Ratio %</label><input id="ratio" type="number" min="0" max="100" step="0.5" value="72.5"></div>
-        <div><label for="sleep">Sleep s</label><input id="sleep" type="number" min="1" max="60" step="0.5" value="5"></div>
-      </div>
-      <div class="row">
-        <button class="primary" id="btn-swipe">Swipear</button>
-        <button id="btn-stop">Detener</button>
-      </div>
-      <div class="help">Ratio: porcentaje de likes frente a dislikes. Sleep: segundos de pausa entre swipes (varía al azar). Requiere el navegador iniciado.</div>
-      <div class="stats">
-        <div><b id="st-like">0</b><span>likes</span></div>
-        <div><b id="st-dislike">0</b><span>dislikes</span></div>
-        <div><b id="st-duration">—</b><span>minutos</span></div>
-      </div>
-    </details>
-
     <section class="panel" id="ig-panel" hidden>
       <h2>Instagram</h2>
       <div class="ig-status"><span class="dot" id="ig-dot"></span><span id="ig-text">No conectado</span></div>
@@ -255,6 +252,7 @@
       <button class="tab" data-tab="auto">Automatización<span class="n" id="n-auto-tab"></span></button>
       <button class="tab" data-tab="people">Galería<span class="n" id="n-people"></span></button>
       <button class="tab" data-tab="new">Matches nuevos<span class="n" id="n-new"></span></button>
+      <button class="tab" data-tab="swipes">Swipes<span class="n" id="n-swipes-tab"></span></button>
       <input class="search" id="search" placeholder="Buscar por nombre">
     </div>
     <div class="notice" id="paused" hidden>
@@ -291,6 +289,51 @@
 
       <h3 class="sec">Últimos envíos automáticos</h3>
       <div id="list-sent"></div>
+    </div>
+
+    <div id="view-swipes" hidden>
+      <div class="summary" id="sw-summary"></div>
+      <div class="sw-grid">
+        <section class="panel">
+          <h3>Todos los días</h3>
+          <p class="muted">El bot da likes solo, en tandas de hasta 20 con pausas al azar de 15 a 40 minutos, dentro del horario que elijas. Cuenta también los likes que des a mano.</p>
+          <label class="sw-switch"><input type="checkbox" id="sw-auto">Swipear todos los días</label>
+          <div class="fields">
+            <div><label for="sw-dia">Likes por día</label><input id="sw-dia" type="number" min="1" max="300"></div>
+            <div><label for="sw-desde">Desde (hora)</label><input id="sw-desde" type="number" min="0" max="23"></div>
+            <div><label for="sw-hasta">Hasta (hora)</label><input id="sw-hasta" type="number" min="1" max="24"></div>
+          </div>
+          <button class="primary" id="sw-guardar">Guardar</button>
+          <div class="sw-estado" id="sw-estado"></div>
+          <div class="help">Necesita el dashboard y el navegador abiertos. Usa el % de likes y la pausa de «Swipear ahora». Si Tinder te deja sin likes, espera a que se recarguen.</div>
+        </section>
+
+        <section class="panel">
+          <h3>Swipear ahora</h3>
+          <p class="muted">Una tanda a mano. Corta sola al llegar a la cantidad de likes.</p>
+          <div class="fields">
+            <div><label for="amount">Likes a dar</label><input id="amount" type="number" min="1" max="500"></div>
+            <div><label for="ratio">% de likes</label><input id="ratio" type="number" min="0" max="100" step="0.5"></div>
+            <div><label for="sleep">Pausa (seg)</label><input id="sleep" type="number" min="1" max="60" step="0.5"></div>
+          </div>
+          <div class="row">
+            <button class="primary" id="btn-swipe">Swipear</button>
+            <button id="btn-stop">Detener</button>
+          </div>
+          <div class="help">% de likes: de cada 100 perfiles, a cuántos les da like (al resto, dislike). Pausa: segundos entre perfiles, varía al azar. Si el filtro físico está activo, decide él.</div>
+        </section>
+
+        <section class="panel">
+          <h3>Filtro físico</h3>
+          <p class="muted" id="sw-filtro"></p>
+          <button id="sw-filtro-btn">Configurar</button>
+        </section>
+
+        <section class="panel">
+          <h3>Últimos 7 días</h3>
+          <div class="days" id="sw-dias"></div>
+        </section>
+      </div>
     </div>
 
     <div id="view-people" class="gallery" hidden></div>
@@ -382,7 +425,7 @@ const modoDe = (s) => s.auto_send ? "auto" : s.auto_drafts ? "aprobacion" : "man
 function storage(op, key, value) {
   try { return op === "get" ? localStorage.getItem(key) : localStorage.setItem(key, value); } catch (e) { return null; }
 }
-let tab = ["auto", "people", "new"].includes(storage("get", "tab")) ? storage("get", "tab") : "auto";
+let tab = ["auto", "people", "new", "swipes"].includes(storage("get", "tab")) ? storage("get", "tab") : "auto";
 
 function el(tag, attrs = {}, ...children) {
   const node = document.createElement(tag);
@@ -692,6 +735,9 @@ function renderNotices(s) {
   if (modo === "auto" && s.envios_hoy >= s.envios_tope) {
     avisos.push([`Llegaste al tope de ${s.envios_tope} envíos automáticos de hoy. Los borradores esperan tu aprobación.`]);
   }
+  if (s.swipes.cfg.auto && s.status === "apagado" && s.swipes.hoy.likes < s.swipes.cfg.por_dia) {
+    avisos.push(["Los swipes diarios están activos, pero el navegador está cerrado.", "Iniciar", () => post("/api/start")]);
+  }
   const key = JSON.stringify(avisos.map(a => a[0]));
   if (key === renderNotices.last) return;  // no recrear los botones en cada consulta
   renderNotices.last = key;
@@ -706,6 +752,53 @@ function setTab(t) {
   $("view-auto").hidden = t !== "auto";
   $("view-people").hidden = t !== "people";
   $("view-new").hidden = t !== "new";
+  $("view-swipes").hidden = t !== "swipes";
+}
+
+// --- pestaña Swipes ---
+
+const DIAS = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
+let swipesCargados = false;
+
+function renderSwipes(s, on) {
+  const sw = s.swipes, cfg = sw.cfg, hoy = sw.hoy;
+  // los campos se llenan una sola vez, para no pisar lo que estás escribiendo
+  if (!swipesCargados) {
+    swipesCargados = true;
+    $("amount").value = cfg.cantidad; $("ratio").value = cfg.ratio; $("sleep").value = cfg.pausa;
+    $("sw-auto").checked = cfg.auto; $("sw-dia").value = cfg.por_dia;
+    $("sw-desde").value = cfg.desde; $("sw-hasta").value = cfg.hasta;
+  }
+  const meta = cfg.auto ? cfg.por_dia : null;
+  const pct = meta ? Math.min(100, Math.round(hoy.likes / meta * 100)) : 0;
+  $("sw-summary").replaceChildren(
+    el("div", {class: "stat"}, el("b", {}, meta ? `${hoy.likes} de ${meta}` : String(hoy.likes)),
+      el("span", {}, "likes hoy"), meta ? el("div", {class: "meter"}, el("div", {style: `width:${pct}%`})) : null),
+    el("div", {class: "stat"}, el("b", {}, String(hoy.dislikes)), el("span", {}, "dislikes hoy")),
+    el("div", {class: "stat"}, el("b", {}, cfg.auto ? "activos" : "apagados"), el("span", {}, "swipes diarios")));
+  $("n-swipes-tab").textContent = hoy.likes || "";
+
+  $("sw-estado").hidden = !cfg.auto;
+  $("sw-estado").textContent = sw.espera || "Por arrancar una tanda…";
+  $("sw-estado").className = "sw-estado" + (s.status === "swipeando" ? " on" : "");
+
+  const swipeando = s.status === "swipeando";
+  $("btn-swipe").disabled = !on || swipeando;
+  $("btn-stop").disabled = !swipeando;
+  $("btn-swipe").title = on ? "" : "Primero iniciá el navegador (paso 1)";
+
+  const f = s.fisico || {};
+  $("sw-filtro").textContent = !f.activo ? "Apagado: los likes salen según el % de likes."
+    : `${f.modo === "activo" ? "Activo: decide like o dislike" : "En sombra: solo anota, no decide"}. ` +
+      `Quiero: ${f.obligatorio.join(", ") || "—"}. Evitar: ${f.excluir.join(", ") || "—"}.`;
+
+  const max = Math.max(1, ...sw.historial.map(d => d.likes));
+  const hoyIso = sw.historial.length ? sw.historial[sw.historial.length - 1].fecha : "";
+  $("sw-dias").replaceChildren(...sw.historial.map(d => el("div", {class: "d" + (d.fecha === hoyIso ? " today" : ""),
+      title: `${d.fecha}: ${d.likes} likes, ${d.dislikes} dislikes`},
+    el("span", {}, String(d.likes)),
+    el("div", {class: "bar", style: `height:${Math.round(d.likes / max * 60)}px`}),
+    el("span", {}, DIAS[new Date(d.fecha + "T12:00").getDay()]))));
 }
 
 function render(s) {
@@ -729,8 +822,6 @@ function render(s) {
   $("btn-start").disabled = on;
   $("btn-refresh").disabled = !on;
   $("btn-close").disabled = !on;
-  $("btn-swipe").disabled = !on;
-  $("btn-stop").disabled = s.status !== "swipeando";
   $("refreshed").textContent = s.last_refresh ? "Chats: " + ago(s.last_refresh) : "";
 
   // paso 2: modo
@@ -747,10 +838,7 @@ function render(s) {
   $("btn-ig").textContent = s.instagram ? "Actualizar Instagram" : "Conectar Instagram";
   $("btn-ig").disabled = !on || s.status === "esperando login de Instagram";
 
-  const st = s.stats || {};
-  $("st-like").textContent = st.like ?? 0;
-  $("st-dislike").textContent = st.dislike ?? 0;
-  $("st-duration").textContent = st.duration ? Math.round(st.duration / 60) : "—";
+  renderSwipes(s, on);
 
   const log = $("log");
   const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 20;
@@ -864,6 +952,9 @@ $("btn-close").onclick = () => post("/api/close");
 $("btn-stop").onclick = () => post("/api/stop");
 $("btn-resume").onclick = () => post("/api/llm/resume");
 $("btn-swipe").onclick = () => post("/api/swipe", {amount: $("amount").value, ratio: $("ratio").value, sleep: $("sleep").value});
+$("sw-guardar").onclick = () => post("/api/swipes/config", {auto: $("sw-auto").checked, por_dia: $("sw-dia").value,
+                                                           desde: $("sw-desde").value, hasta: $("sw-hasta").value});
+$("sw-filtro-btn").onclick = openSettings;
 $("btn-settings").onclick = openSettings;
 $("btn-ig").onclick = () => post("/api/instagram/connect");
 $("chat-close").onclick = () => $("chat-dlg").close();

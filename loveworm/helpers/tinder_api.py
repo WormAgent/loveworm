@@ -78,6 +78,12 @@ class TinderApi:
 
         return sorted(messages, key=lambda m: m.get("sent_date", ""))
 
+    def likes_restantes(self):
+        """(likes que quedan, epoch en que se recargan o None). Con Tinder Gold vienen como 100."""
+        likes = self._request("GET", "/v2/profile?include=likes&locale=en")["data"].get("likes") or {}
+        hasta = likes.get("rate_limited_until")
+        return likes.get("likes_remaining"), (hasta / 1000 if hasta else None)
+
     def send_message(self, match_id, text, estilo_opts=None):
         message = estilo.normalizar(text, estilo_opts)
         return self._request("POST", f"/user/matches/{match_id}", {"message": message})

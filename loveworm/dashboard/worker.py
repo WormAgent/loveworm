@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timezone
 from pathlib import Path
 
-from loveworm.helpers import citas, estilo, fisico
+from loveworm.helpers import citas, estilo, fisico, swipes
 from loveworm.helpers.cupos import MAX_ACTIVAS, Cupos
 from loveworm.helpers.instagram_web import InstagramWeb, extract_handles
 from loveworm.helpers.llm import LLMError, analyze_person, bloque_perfil, draft_message, generar_guia
@@ -49,6 +49,8 @@ DEFAULT_SETTINGS = {
     "fisico": fisico.DEFAULT,
     # lo que Claude tiene que saber de vos: qué hacés, qué te gusta, cómo sos
     "sobre_mi": "",
+    # swipes manuales y automáticos diarios (ver helpers/swipes.py)
+    "swipes": swipes.DEFAULT,
 }
 MODELS = ("haiku", "sonnet", "opus")
 
@@ -127,12 +129,17 @@ class Bot:
         self.cache = self._load_cache()
         self.settings = self._load_settings()
         self.envios = self._load_envios()
+        self.swipes = swipes.Registro(self.root / "data" / "swipes.json")
+        # likes/dislikes de la sesión al arrancar el swipe en curso, para contar en vivo
+        self._swipe_base = None
         # la política que mantiene 5 conversaciones vivas y rota al que no contesta
         self.cupos = Cupos(self.root / "data" / "cupos.json", max_activas=self.settings["max_activas"])
 
         self.lock = threading.Lock()
         self.jobs = queue.Queue()
+        # stop_event corta solo el swipe en curso; _apagado frena los hilos de fondo
         self.stop_event = threading.Event()
+        self._apagado = threading.Event()
         self.llm = ThreadPoolExecutor(max_workers=2)
 
         self.session = None
@@ -152,6 +159,7 @@ class Bot:
         self._refresh_t = None  # se setea en el primer refresh; sin él no hay refresco automático
         threading.Thread(target=self._loop, daemon=True).start()
         threading.Thread(target=self._refresco_automatico, daemon=True).start()
+        threading.Thread(target=self._swipes_automaticos, daemon=True).start()
         # analysis only needs the stored chats, so it starts without opening chrome
         self._schedule_llm()
 
@@ -228,7 +236,8 @@ class Bot:
         return dict(self.settings, estilo=estilo.completar(self.settings.get("estilo")),
                     estilo_reglas=estilo.descripciones(), models=MODELS,
                     fisico=fisico.completar(self.settings.get("fisico")),
-                    fisico_atributos=fisico.descripciones(), guia=self._leer_guia())
+                    fisico_atributos=fisico.descripciones(), guia=self._leer_guia(),
+                    swipes=swipes.completar(self.settings.get("swipes")))
 
     def _leer_guia(self):
         """La guía ya guardada (sin generarla): estilo, hechos y fecha."""
@@ -278,7 +287,7 @@ class Bot:
 
     def update_settings(self, instructions=None, model=None, auto_drafts=None, auto_send=None,
                         estilo_opts=None, max_activas=None, tope_diario=None, fisico_opts=None,
-                        sobre_mi=None):
+                        sobre_mi=None, swipes_opts=None):
         """Guarda solo lo que viene (None = se conserva), así cada control de la interfaz
         puede cambiar lo suyo sin pisar el resto."""
         if model is not None and model not in MODELS:
@@ -298,7 +307,9 @@ class Bot:
                   "estilo": None if estilo_opts is None else estilo.completar(estilo_opts),
                   "max_activas": max_activas, "tope_diario": tope_diario,
                   "fisico": None if fisico_opts is None else fisico.completar(fisico_opts),
-                  "sobre_mi": None if sobre_mi is None else sobre_mi.strip()}
+                  "sobre_mi": None if sobre_mi is None else sobre_mi.strip(),
+                  "swipes": None if swipes_opts is None
+                  else swipes.completar(dict(self.settings.get("swipes") or {}, **swipes_opts))}
         self.settings.update({k: v for k, v in nuevos.items() if v is not None})
         if auto_drafts is False:
             self.settings["auto_send"] = False  # sin borradores no hay nada que enviar
@@ -349,6 +360,8 @@ class Bot:
             "envios_hoy": self._envios_hoy(),
             "envios_tope": self.settings["tope_diario"],
             "envios_ultimos": self.envios.get("ultimos", [])[:10],
+            "swipes": self._swipes_estado(),
+            "fisico": fisico.completar(self.settings.get("fisico")),
             "people": people,
             "new": new,
         }
@@ -419,28 +432,105 @@ class Bot:
         self.log("Sesión iniciada.")
         self.jobs.put(("refresh", {}))
 
-    def _job_swipe(self, amount, ratio, sleep):
+    def _job_swipe(self, amount, ratio, sleep, auto=False):
         self._require_session()
-        self._tab("tinder")
+        api = TinderApi(self._tab("tinder"))
+        try:
+            quedan, recarga = api.likes_restantes()
+        except Exception as e:
+            quedan, recarga = None, None
+            self.log(f"No se pudo consultar cuántos likes te quedan: {str(e)[:150]}")
+        if quedan == 0:
+            self.swipes.sin_likes_hasta = recarga or time.time() + 3600
+            self.log("Tinder no te deja dar más likes hasta las "
+                     f"{time.strftime('%H:%M', time.localtime(self.swipes.sin_likes_hasta))}.")
+            return
+        if quedan is not None and quedan < amount:
+            self.log(f"Te quedan {quedan} likes en Tinder: la tanda se achica a eso.")
+            amount = quedan
+
         self.stop_event.clear()
         self.status = "swipeando"
-
         filtro = None
         if self.settings["fisico"].get("activo"):
             filtro = fisico.Filtro(driver=self.session.browser, root=self.root,
-                                   opciones=self.settings["fisico"], log=self.log,
-                                   api=TinderApi(self.session.browser))
+                                   opciones=self.settings["fisico"], log=self.log, api=api)
             self.log(f"Filtro físico en modo {filtro.cfg['modo']}: quiero {filtro.cfg['obligatorio'] or '—'}, "
                      f"evitar {filtro.cfg['excluir'] or '—'}.")
-        self.log(f"Swipe: {amount} likes, ratio {ratio}%, sleep {sleep}s.")
+        self.log(f"Swipe{' automático' if auto else ''}: {amount} likes, {ratio}% de likes, pausa {sleep}s.")
+        datos = self.session.session_data
+        self._swipe_base = {"like": datos["like"], "dislike": datos["dislike"]}
         try:
             self.session.like(amount=amount, ratio=f"{ratio}%", sleep=sleep,
                               stop_event=self.stop_event, filtro=filtro)
         finally:
+            base, self._swipe_base = self._swipe_base, None
+            self.swipes.sumar(datos["like"] - base["like"], datos["dislike"] - base["dislike"])
             self.status = "listo"
+            if auto:
+                self.swipes.programar_siguiente()
             if filtro is not None:
                 self.log(filtro.resumen())
-        self.log("Swipe terminado.")
+        hoy = self._swipes_hoy()
+        self.log(f"Swipe terminado. Hoy: {hoy['likes']} likes, {hoy['dislikes']} dislikes.")
+
+    def _swipes_hoy(self):
+        """Lo guardado de hoy más lo que va del swipe en curso."""
+        hoy = self.swipes.hoy()
+        base, session = self._swipe_base, self.session
+        if base and session:
+            hoy["likes"] += session.session_data["like"] - base["like"]
+            hoy["dislikes"] += session.session_data["dislike"] - base["dislike"]
+        return hoy
+
+    def _swipes_espera(self, cfg):
+        """Por qué la automática no swipea ahora mismo, o None si le toca."""
+        ahora = time.time()
+        if self.status == "swipeando":
+            return "Swipeando."
+        if self._swipes_hoy()["likes"] >= cfg["por_dia"]:
+            return "Meta de hoy cumplida. Sigue mañana."
+        if ahora < self.swipes.sin_likes_hasta:
+            return ("Tinder te dejó sin likes. Sigue a las "
+                    f"{time.strftime('%H:%M', time.localtime(self.swipes.sin_likes_hasta))}.")
+        if not swipes.en_franja(cfg):
+            return f"Corre entre las {cfg['desde']} y las {cfg['hasta']} h."
+        if not self._browser_alive():
+            return "El navegador está cerrado: no swipea hasta que lo inicies."
+        if ahora < self.swipes.proxima:
+            return f"Próxima tanda cerca de las {time.strftime('%H:%M', time.localtime(self.swipes.proxima))}."
+        if self.status != "listo" or self.current_job or not self.jobs.empty():
+            return "Esperando que el navegador termine lo que está haciendo."
+        return None
+
+    def _swipes_estado(self):
+        cfg = swipes.completar(self.settings.get("swipes"))
+        return {"cfg": cfg, "hoy": self._swipes_hoy(), "historial": self.swipes.historial(),
+                "espera": self._swipes_espera(cfg) if cfg["auto"] else None}
+
+    def _swipes_automaticos(self):
+        """Cada día, dentro de la franja, da likes en tandas hasta llegar a la meta."""
+        while not self._apagado.wait(30):
+            cfg = swipes.completar(self.settings.get("swipes"))
+            if not cfg["auto"] or self._swipes_espera(cfg) is not None:
+                continue
+            faltan = cfg["por_dia"] - self._swipes_hoy()["likes"]
+            n = min(swipes.TANDA, faltan)
+            # no volver a encolar mientras la tanda espera turno; al terminar se programa la siguiente
+            self.swipes.proxima = time.time() + 3600
+            self.log(f"Swipes automáticos: tanda de {n} likes (meta {cfg['por_dia']} por día).")
+            self.jobs.put(("swipe", {"amount": n, "ratio": cfg["ratio"], "sleep": cfg["pausa"], "auto": True}))
+
+    def guardar_swipes(self, opciones):
+        """Guarda los valores del panel de swipes sin el ruido de update_settings."""
+        antes = swipes.completar(self.settings.get("swipes"))
+        self.settings["swipes"] = swipes.completar(dict(antes, **opciones))
+        self._save_settings()
+        if self.settings["swipes"]["auto"] and not antes["auto"]:
+            self.swipes.proxima = 0.0  # recién prendida: la primera tanda sale enseguida si toca
+            self.log("Swipes automáticos activados.")
+        elif antes["auto"] and not self.settings["swipes"]["auto"]:
+            self.log("Swipes automáticos desactivados.")
 
     def _person_fields(self, m):
         person = m.get("person") or {}
@@ -456,7 +546,7 @@ class Bot:
 
     def _refresco_automatico(self):
         """Pide un refresco cada REFRESCO_MIN minutos mientras el navegador esté abierto y sin nada en curso."""
-        while not self.stop_event.wait(30):
+        while not self._apagado.wait(30):
             t = self._refresh_t
             if (t is None or time.monotonic() - t < REFRESCO_MIN * 60
                     or self.status != "listo" or self.current_job or not self.jobs.empty()

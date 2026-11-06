@@ -40,12 +40,22 @@ def start():
 def swipe():
     body = request.get_json(force=True)
     try:
-        amount = max(1, min(int(body.get("amount", 10)), 500))
-        ratio = max(0.0, min(float(body.get("ratio", 72.5)), 100.0))
-        sleep = max(1.0, min(float(body.get("sleep", 5)), 60.0))
-    except (TypeError, ValueError):
-        return jsonify(ok=False, error="Valores inválidos"), 400
-    bot.submit("swipe", amount=amount, ratio=ratio, sleep=sleep)
+        # se guardan para que el panel los recuerde la próxima vez
+        bot.guardar_swipes({"cantidad": body.get("amount", 10), "ratio": body.get("ratio", 72.5),
+                            "pausa": body.get("sleep", 5)})
+    except ValueError as e:
+        return jsonify(ok=False, error=str(e)), 400
+    cfg = bot.settings["swipes"]
+    bot.submit("swipe", amount=cfg["cantidad"], ratio=cfg["ratio"], sleep=cfg["pausa"])
+    return jsonify(ok=True)
+
+
+@app.post("/api/swipes/config")
+def swipes_config():
+    try:
+        bot.guardar_swipes(request.get_json(force=True))
+    except ValueError as e:
+        return jsonify(ok=False, error=str(e)), 400
     return jsonify(ok=True)
 
 
