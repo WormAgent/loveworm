@@ -103,7 +103,7 @@
   .box { border: 1px solid var(--amber-dim); background: rgba(255,140,20,.03); padding: 14px 16px; }
   .box h3 { font-family: var(--pixel); font-weight: 400; font-size: 1.35rem; text-transform: uppercase; margin: 0 0 4px; letter-spacing: .04em; }
   .box > p.muted { font-size: .8rem; margin: 0 0 12px; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; align-items: start; }
   .empty { padding: 28px; text-align: center; opacity: .7; grid-column: 1 / -1; border: 1px dashed var(--amber-dim); }
   .empty::before { content: "-- "; } .empty::after { content: " --"; }
   .start-here { padding: 40px 20px; text-align: center; }
@@ -153,8 +153,8 @@
   .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
   .card { border: 1px solid var(--amber-dim); background: rgba(255,140,20,.03); display: flex; flex-direction: column; }
   .card:hover { border-color: var(--amber); }
-  .photo { position: relative; aspect-ratio: 4 / 5; background: #0c0600; border-bottom: 1px solid var(--amber-dim); }
-  .photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .photo { position: relative; aspect-ratio: 4 / 5; overflow: hidden; background: #0c0600; border-bottom: 1px solid var(--amber-dim); }
+  .photo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
   .photo .none { position: absolute; inset: 0; display: grid; place-items: center; font-size: .8rem; opacity: .7; padding: 12px; text-align: center; }
   .nav { position: absolute; top: 50%; transform: translateY(-50%); width: 32px; height: 40px; padding: 0; font-size: 1.2rem;
     background: rgba(12,6,0,.7); border-color: var(--amber-dim); }
@@ -165,7 +165,7 @@
   .badge { position: absolute; left: 8px; bottom: 8px; display: flex; align-items: center; gap: 8px; padding: 3px 10px 3px 3px;
     background: rgba(12,6,0,.82); border: 1px solid var(--amber-dim); font-size: .75rem; max-width: calc(100% - 16px); }
   .badge .label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; letter-spacing: .04em; }
-  .turn { position: absolute; right: 8px; bottom: 8px; font-size: .7rem; font-weight: 600; padding: 3px 8px; text-transform: uppercase;
+  .turn { position: absolute; right: 8px; top: 18px; font-size: .7rem; font-weight: 600; padding: 3px 8px; text-transform: uppercase;
     letter-spacing: .06em; background: var(--band); border: 1px solid var(--amber); color: var(--amber-hi); }
   .card .body > .tag { align-self: flex-start; }
   .card .body { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
@@ -220,7 +220,7 @@
   .chat-tabs { display: flex; gap: 4px; padding: 8px 14px 0; }
   .dlg-body { padding: 14px; overflow: auto; max-height: calc(100vh - 150px); }
   .thread { display: flex; flex-direction: column; gap: 6px; }
-  .msg { max-width: 82%; padding: 6px 10px; border: 1px solid var(--amber-dim); white-space: pre-wrap; word-break: break-word; font-size: .85rem; }
+  .msg { width: fit-content; max-width: 82%; padding: 6px 10px; border: 1px solid var(--amber-dim); white-space: pre-wrap; word-break: break-word; font-size: .85rem; }
   .msg.me { align-self: flex-end; background: var(--band); border-color: var(--amber); color: var(--amber-hi); }
   .msg time { display: block; font-size: .65rem; opacity: .65; margin-top: 2px; }
 
@@ -502,7 +502,11 @@ function ago(iso) {
   const min = Math.round((Date.now() - new Date(iso)) / 60000);
   if (min < 60) return `hace ${Math.max(min, 1)} min`;
   if (min < 1440) return `hace ${Math.round(min / 60)} h`;
-  return `hace ${Math.round(min / 1440)} d`;
+  const dias = Math.round(min / 1440);
+  if (dias < 60) return `hace ${dias} d`;
+  if (dias < 365) return `hace ${Math.round(dias / 30)} meses`;
+  const anios = Math.round(dias / 365);
+  return `hace ${anios} año${anios > 1 ? "s" : ""}`;
 }
 const hhmm = (epoch) => new Date(epoch * 1000).toLocaleTimeString("es-AR", {hour: "2-digit", minute: "2-digit"});
 
@@ -663,14 +667,15 @@ function personRow(p, s, extra = {}) {
   const [texto, tono] = fase(p, s);
   const photo = safePhotos(p)[0];
   const cita = citaText(p.cita);
-  const score = p.analysis_status === "ok" && p.analysis ? p.analysis.interes : null;
+  const score0 = extra.score ?? (p.analysis_status === "ok" && p.analysis ? p.analysis.interes : null);
+  const score = score0 ? score0 : null;
   return el("article", {class: "arow"},
     photo ? el("img", {class: "thumb", src: photo, alt: "", loading: "lazy", referrerpolicy: "no-referrer"})
           : el("div", {class: "thumb"}, (p.name || "?")[0]),
     el("div", {},
       el("div", {class: "top"},
         el("span", {class: "name"}, title(p)),
-        (extra.score ?? score) != null ? el("span", {class: "mini " + tierOf(extra.score ?? score), title: "Interés 0–100"}, String(extra.score ?? score)) : null,
+        score != null ? el("span", {class: "mini " + tierOf(score), title: "Interés 0–100"}, String(score)) : null,
         extra.fijada ? el("span", {class: "tag", title: "No rota aunque deje de responder"}, "Fijado") : null),
       p.last_text ? el("div", {class: "snippet"}, (p.last_from_me ? "Vos: " : "Ella: ") + snip(p.last_text)) : null,
       el("div", {class: "phase"},
@@ -742,12 +747,18 @@ function renderGallery(view, list, card, emptyText) {
 
 // --- pestaña Piloto ---
 
+const cupoTexto = (c) => c.usados > c.cupo ? String(c.usados) : `${c.usados}/${c.cupo}`;
+const cupoDetalle = (c) => c.fijadas
+  ? `chats automatizados · ${c.fijadas} fijado${c.fijadas > 1 ? "s" : ""} · cupo ${c.cupo}`
+  : "chats automatizados";
+
 function renderAuto(s) {
   const byId = new Map([...s.people, ...s.new].map(p => [p.id, p]));
   const c = s.cupos;
 
   $("auto-summary").replaceChildren(
-    el("div", {class: "stat"}, el("b", {}, `${c.usados}/${c.cupo}`), el("span", {}, "chats automatizados")),
+    el("div", {class: "stat", title: "Los fijados no rotan aunque dejen de responder y ocupan lugar del cupo"},
+      el("b", {}, cupoTexto(c)), el("span", {}, cupoDetalle(c))),
     el("div", {class: "stat"}, el("b", {}, `${s.envios_hoy}/${s.envios_tope}`), el("span", {}, "envíos automáticos hoy")),
     el("div", {class: "stat"}, el("b", {}, `${s.envio.envio_desde}–${s.envio.envio_hasta} h`),
       el("span", {}, s.en_horario ? "horario de envío · abierto" : "horario de envío · cerrado")));
@@ -758,7 +769,7 @@ function renderAuto(s) {
   $("n-approve").textContent = `· ${aprobar.length}`;
   $("list-approve").replaceChildren(...aprobar.map(p => personRow(p, s)));
 
-  $("n-auto").textContent = `· ${c.usados}/${c.cupo}`;
+  $("n-auto").textContent = `· ${cupoTexto(c)}`;
   const enBandeja = new Set(aprobar.map(p => p.id));
   const ultimo = d => (byId.get(d.id) || {}).last_sent || "";
   const detalle = [...c.detalle].sort((a, b) => ultimo(b).localeCompare(ultimo(a)));
@@ -805,8 +816,9 @@ function renderNotices(s) {
   if (modo === "auto" && s.envios_hoy >= s.envios_tope) {
     avisos.push([`[--] Llegaste al tope de ${s.envios_tope} envíos automáticos de hoy. Los borradores esperan tu aprobación.`, null, null, "info"]);
   }
-  if (modo === "auto" && !s.en_horario && s.status !== "apagado") {
-    avisos.push([`[--] Fuera del horario de envío (${s.envio.envio_desde}–${s.envio.envio_hasta} h): las respuestas quedan programadas.`, null, null, "info"]);
+  const programados = [...s.people, ...s.new].filter(p => p.draft && p.draft_send_at).length;
+  if (modo === "auto" && !s.en_horario && programados) {
+    avisos.push([`[--] Fuera del horario de envío (${s.envio.envio_desde}–${s.envio.envio_hasta} h): ${programados} respuesta${programados > 1 ? "s esperan" : " espera"} para salir.`, null, null, "info"]);
   }
   const key = JSON.stringify(avisos.map(a => a[0]));
   if (key === renderNotices.last) return;  // no recrear los botones en cada consulta
@@ -894,7 +906,7 @@ function render(s) {
   $("hero-pred").replaceChildren(
     "Mensajes ", el("b", {}, `${s.envios_hoy}/${s.envios_tope}`),
     " · Likes ", el("b", {}, s.swipes.cfg.auto ? `${s.swipes.hoy.likes}/${s.swipes.cfg.por_dia}` : String(s.swipes.hoy.likes)),
-    " · Chats ", el("b", {}, `${c.usados}/${c.cupo}`),
+    " · Chats ", el("b", {}, cupoTexto(c)),
     " · Modo ", el("b", {}, MODOS[modo]));
 
   $("status-line").textContent = statusText(s, on);

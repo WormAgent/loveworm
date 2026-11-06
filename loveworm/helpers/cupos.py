@@ -140,7 +140,7 @@ class Cupos:
         """Chats que pueden ocupar un cupo, en orden de prioridad."""
         candidatas = []
         for mid, entry in cache.items():
-            if mid in self.activas:
+            if mid in self.activas or entry.get("unmatch"):
                 continue
             mensajes = entry.get("messages") or []
             ultimo = mensajes[-1] if mensajes else None
@@ -185,6 +185,7 @@ class Cupos:
                     for mid, r in self.rotadas.items()]
         pausadas.sort(key=lambda p: p["fecha"] or "", reverse=True)
         return {"cupo": self.max_activas, "usados": len(self.activas), "detalle": detalle,
+                "fijadas": sum(1 for d in detalle if d["fijada"]),
                 "rotadas": len(self.rotadas), "pausadas": pausadas[:30]}
 
 

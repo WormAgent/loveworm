@@ -7,7 +7,7 @@ para refrescar chats y mandar mensajes (todo pasa por la misma pestaña).
 import json
 import random
 import time
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 DEFAULT = {
@@ -86,7 +86,8 @@ class Registro:
     def historial(self):
         h = dict(self.data.get("historial", {}))
         h[date.today().isoformat()] = self.hoy()
-        return [{"fecha": f, **v} for f, v in sorted(h.items())[-7:]]
+        dias = [(date.today() - timedelta(days=n)).isoformat() for n in range(6, -1, -1)]
+        return [{"fecha": f, **h.get(f, {"likes": 0, "dislikes": 0})} for f in dias]
 
     def programar_siguiente(self):
         self.proxima = time.time() + random.uniform(*PAUSA_TANDAS) * 60

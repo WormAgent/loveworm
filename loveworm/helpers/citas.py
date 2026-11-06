@@ -104,10 +104,9 @@ def aplicar(actual, leido, ahora=None):
 
 
 def por_defecto(mensajes):
-    """Estado para chats que nunca se analizaron porque ella no contestó."""
-    mios = any(m.get("from_me") for m in (mensajes or []))
-    return _completar({"estado": "propuesta" if mios else "sin_proponer",
-                       "quien": "yo" if mios else "ninguno"})
+    """Estado para chats que nunca se analizaron porque ella no contestó. Que le hayamos escrito
+    (un saludo, el primer mensaje) no es proponer una cita."""
+    return _completar({"estado": "sin_proponer", "quien": "ninguno"})
 
 
 def _dia_lindo(iso):

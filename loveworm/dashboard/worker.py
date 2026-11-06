@@ -155,7 +155,8 @@ class Bot:
         self.tabs = {}
         self.status = "apagado"
         self.current_job = None
-        self.logs = deque(maxlen=200)
+        self.log_path = self.root / "data" / "actividad.log"
+        self.logs = deque(self._leer_log(), maxlen=200)
         self.active = []
         self.available = []
         self.last_refresh = None
@@ -398,6 +399,22 @@ class Bot:
         print(line)
         with self.lock:
             self.logs.append(line)
+            try:
+                with self.log_path.open("a", encoding="utf-8") as f:
+                    f.write(f"{time.strftime('%d/%m')} {line}\n")
+            except OSError:
+                pass
+
+    def _leer_log(self):
+        """Las últimas líneas del registro, para que Actividad no arranque vacía después de reiniciar.
+        Recorta el archivo cuando crece."""
+        try:
+            lineas = self.log_path.read_text(encoding="utf-8").splitlines()
+        except (FileNotFoundError, OSError):
+            return []
+        if len(lineas) > 2000:
+            self.log_path.write_text("\n".join(lineas[-500:]) + "\n", encoding="utf-8")
+        return lineas[-200:]
 
     # --- job loop ---
 
@@ -592,6 +609,8 @@ class Bot:
             available_raw = api.get_matches(messaged=False)
             self.log(f"{len(active_raw)} chats activos, {len(available_raw)} matches sin chat.")
 
+            self._marcar_unmatches({m["_id"] for m in active_raw + available_raw},
+                                   completa=len(active_raw) < 500 and len(available_raw) < 500)
             available = sorted((self._person_fields(m) for m in available_raw),
                                key=lambda a: a["matched"] or "", reverse=True)
             with self.lock:
@@ -660,6 +679,23 @@ class Bot:
         self._enviar_borradores_pendientes()
         if INSTAGRAM_ENABLED and self.settings["instagram"]:
             self.jobs.put(("refresh_instagram", {}))
+
+    def _marcar_unmatches(self, vigentes, completa):
+        """Quien ya no aparece en Tinder deshizo el match: sale del piloto y no vuelve a entrar.
+        Solo con la lista completa (la API corta en 500), para no sacar a nadie por error."""
+        if not completa:
+            return
+        with self.lock:
+            for mid, entry in self.cache.items():
+                if mid in vigentes:
+                    entry.pop("unmatch", None)
+                elif entry.get("messages") is not None or entry.get("matched"):
+                    entry.setdefault("unmatch", _now_iso())
+                    entry.pop("draft", None)
+        for mid in list(self.cupos.activas):
+            if mid not in vigentes:
+                self.cupos.liberar(mid)
+                self.log(f"{self.cache.get(mid, {}).get('name', '?')} ya no está en Tinder (deshizo el match): sale del piloto.")
 
     def _revisar_cupos(self):
         resultado = self.cupos.revisar(self.cache)
@@ -815,6 +851,8 @@ class Bot:
 
     def _wants_draft(self, mid, entry):
         msgs = entry.get("messages") or []
+        if entry.get("unmatch"):
+            return False
         if entry.get("draft") or entry.get("draft_error") or entry.get("draft_dismissed") == _draft_key(entry):
             return False
         if entry.get("draft_requested"):
@@ -1036,6 +1074,11 @@ class Bot:
             # drop drafts that no longer match the chat (new messages arrived)
             if entry.get("draft") and entry["draft"].get("for") != _draft_key(entry):
                 entry.pop("draft")
+            # versiones viejas marcaban "cita propuesta" en chats donde solo saludamos
+            cita = entry.get("cita") or {}
+            if ((entry.get("analysis") or {}).get("senal") == "No respondió" and cita.get("estado") == "propuesta"
+                    and not (cita.get("dia") or cita.get("lugar") or cita.get("momento"))):
+                entry["cita"] = citas.por_defecto(entry.get("messages"))
         return cache
 
     def _load_settings(self):
