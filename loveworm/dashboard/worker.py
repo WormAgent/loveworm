@@ -32,7 +32,11 @@ DEFAULT_SETTINGS = {
         "Sos poco empujador: proponé salir recién cuando haya ida y vuelta real, una sola vez "
         "y con un día concreto."
     ),
+    # modelo para analizar a cada persona (barato alcanza) y para escribir (necesita leer bien la charla).
+    # Un alias de Claude, o "api" para usar la API compatible con OpenAI de abajo.
     "model": "haiku",
+    "model_borrador": "sonnet",
+    "api": {"url": "https://api.openai.com/v1", "key": "", "modelo": ""},
     # when on, claude drafts openers for matches created after drafts_since and replies for chats it opened
     "auto_drafts": False,
     # when on, the bot sends the draft by itself instead of waiting for the Enviar click
@@ -59,7 +63,12 @@ DEFAULT_SETTINGS = {
     # al levantar el dashboard abre Chrome solo, así las automatizaciones corren sin tocar nada
     "abrir_al_iniciar": False,
 }
-MODELS = ("haiku", "sonnet", "opus")
+MODELS = ("haiku", "sonnet", "opus", "api")
+
+# los mensajes de un borrador con varias burbujas salen separados, como alguien que escribe de corrido
+PAUSA_BURBUJAS = (1.5, 4.0)
+# desde acá el dashboard manda mensajes: en los chats que maneja, lo tuyo de antes de esto lo escribiste vos
+INICIO_DASHBOARD = "2026-10-23"
 
 # paused: instagram web no longer serves DMs through its api and reading them on screen is not
 # reliable yet. While off, nothing opens instagram and the dashboard hides its panel.
@@ -78,7 +87,7 @@ def _error_de_sesion(msg):
     """Límite de uso o sesión de Claude vencida: conviene pausar todo en vez de marcar error
     en cada chat, que es lo que pasaría si cada llamada falla por su cuenta."""
     bajo = (msg or "").lower()
-    return any(p in bajo for p in ("limit", "authenticate", "oauth", "session expired", "login required"))
+    return any(p in bajo for p in ("limit", "authenticate", "oauth", "session expired", "login required", "api key"))
 
 
 def _age(birth_date):
@@ -246,8 +255,15 @@ class Bot:
         self.log("Claude reanudado.")
         self._schedule_llm()
 
+    def _motor(self, tarea):
+        """Qué modelo usa cada tarea: un alias de Claude, o la config de la API."""
+        modelo = self.settings["model_borrador" if tarea == "borrador" else "model"]
+        return dict(self.settings["api"]) if modelo == "api" else modelo
+
     def get_settings(self):
-        return dict(self.settings, estilo=estilo.completar(self.settings.get("estilo")),
+        # la api key no vuelve a la interfaz: solo si hay una guardada
+        api = dict(self.settings["api"], key="", key_guardada=bool(self.settings["api"].get("key")))
+        return dict(self.settings, api=api, estilo=estilo.completar(self.settings.get("estilo")),
                     estilo_reglas=estilo.descripciones(), models=MODELS,
                     fisico=fisico.completar(self.settings.get("fisico")),
                     fisico_atributos=fisico.descripciones(), guia=self._leer_guia(),
@@ -277,7 +293,7 @@ class Bot:
                 return {}
             self.log("Leyendo tus chats para aprender cómo escribís (se hace una sola vez)...")
             try:
-                guia = generar_guia(textos, tramos, stats)
+                guia = generar_guia(textos, tramos, stats, model=self._motor("borrador"))
             except LLMError as e:
                 self._guia_fallo = time.time()
                 self.log(f"No se pudo armar la guía de estilo: {e}")
@@ -301,11 +317,21 @@ class Bot:
 
     def update_settings(self, instructions=None, model=None, auto_drafts=None, auto_send=None,
                         estilo_opts=None, max_activas=None, tope_diario=None, fisico_opts=None,
-                        sobre_mi=None, swipes_opts=None, envio=None):
+                        sobre_mi=None, swipes_opts=None, envio=None, model_borrador=None, api=None):
         """Guarda solo lo que viene (None = se conserva), así cada control de la interfaz
         puede cambiar lo suyo sin pisar el resto."""
-        if model is not None and model not in MODELS:
-            raise ValueError("Modelo inválido")
+        for m in (model, model_borrador):
+            if m is not None and m not in MODELS:
+                raise ValueError("Modelo inválido")
+        api_nueva = dict(self.settings["api"])
+        for k in ("url", "modelo"):
+            if k in (api or {}):
+                api_nueva[k] = str(api[k] or "").strip()
+        if str((api or {}).get("key") or "").strip():  # vacía = se conserva la que estaba
+            api_nueva["key"] = str(api["key"]).strip()
+        usa_api = "api" in (model or self.settings["model"], model_borrador or self.settings["model_borrador"])
+        if usa_api and not (api_nueva["url"] and api_nueva["modelo"]):
+            raise ValueError("Para usar otra API completá la URL y el nombre del modelo")
         for nombre, valor, minimo, maximo in (("max_activas", max_activas, 1, 20), ("tope_diario", tope_diario, 0, 200)):
             if valor is not None and not minimo <= valor <= maximo:
                 raise ValueError(f"{nombre} tiene que estar entre {minimo} y {maximo}")
@@ -329,7 +355,8 @@ class Bot:
         encendio_auto = bool(auto_send) and not self.settings["auto_send"]
         nuevos = {"instructions": None if instructions is None
                   else instructions.strip() or DEFAULT_SETTINGS["instructions"],
-                  "model": model, "auto_drafts": auto_drafts, "auto_send": auto_send,
+                  "model": model, "model_borrador": model_borrador, "api": api_nueva if api is not None else None,
+                  "auto_drafts": auto_drafts, "auto_send": auto_send,
                   "estilo": None if estilo_opts is None else estilo.completar(estilo_opts),
                   "max_activas": max_activas, "tope_diario": tope_diario,
                   "fisico": None if fisico_opts is None else fisico.completar(fisico_opts),
@@ -791,7 +818,31 @@ class Bot:
                 self.log(f"Envío automático a {nombre} cancelado: el borrador ya no está.")
                 return
 
-        TinderApi(self._tab("tinder")).send_message(match_id, text, estilo_opts=self.settings.get("estilo"))
+        opts = self.settings.get("estilo")
+        with self.lock:
+            borrador = ((self.cache.get(match_id) or {}).get("draft") or {}).get("text") or ""
+        del_borrador = {linea.strip() for linea in borrador.splitlines() if linea.strip()}
+        # cada línea es un mensaje aparte, como en el chat de verdad
+        burbujas = [linea.strip() for linea in text.splitlines() if linea.strip()]
+        api = TinderApi(self._tab("tinder"))
+        for i, burbuja in enumerate(burbujas):
+            if i:
+                time.sleep(random.uniform(*PAUSA_BURBUJAS) + min(len(burbuja) * 0.05, 4))
+            try:
+                api.send_message(match_id, burbuja, estilo_opts=opts)
+            except Exception:
+                if i:
+                    # lo que ya salió no se vuelve a mandar si se reintenta
+                    with self.lock:
+                        draft = (self.cache.get(match_id) or {}).get("draft")
+                        if draft:
+                            draft["text"] = "\n".join(burbujas[i:])
+                raise
+            # lo que escribió el bot (o salió de un borrador sin tocar) no se usa para aprender tu estilo
+            if auto or burbuja in del_borrador:
+                with self.lock:
+                    entry = self.cache.setdefault(match_id, {})
+                    entry["enviados_bot"] = (entry.get("enviados_bot") or [])[-300:] + [estilo.normalizar(burbuja, opts)]
         with self.lock:
             entry = self.cache.setdefault(match_id, {})
             entry.pop("draft", None)
@@ -936,7 +987,7 @@ class Bot:
         try:
             name, gender, bio, msgs, ig_msgs, key = self._snapshot(match_id)
             result = self._call_llm(match_id, "analysis", lambda: analyze_person(
-                name, gender, bio, msgs, ig_messages=ig_msgs, model=self.settings["model"]))
+                name, gender, bio, msgs, ig_messages=ig_msgs, model=self._motor("analisis")))
             if result:
                 leido = result.pop("cita", None)
                 with self.lock:
@@ -958,7 +1009,7 @@ class Bot:
             stats = estilo.estadisticas(self.cache)
         perfil = bloque_perfil(dict(guia, stats=stats), self.settings.get("sobre_mi", ""))
         text = self._call_llm(match_id, "draft", lambda: draft_message(
-            name, gender, bio, msgs, self.settings["instructions"], model=self.settings["model"], cita=cita,
+            name, gender, bio, msgs, self.settings["instructions"], model=self._motor("borrador"), cita=cita,
             estilo_opts=self.settings.get("estilo"), ejemplos=ejemplos, perfil=perfil))
         if text:
             with self.lock:
@@ -1071,6 +1122,12 @@ class Bot:
             for k in ("analysis_error", "draft_error"):
                 if _error_de_sesion(entry.get(k)):
                     entry.pop(k)
+            # antes no se anotaba qué mandaba el bot: en los chats que maneja el dashboard,
+            # lo tuyo desde que existe se toma como del bot, para no aprender de eso
+            if entry.get("managed") and "enviados_bot" not in entry:
+                entry["enviados_bot"] = [m["text"] for m in entry.get("messages") or []
+                                         if m.get("from_me") and m.get("text")
+                                         and (m.get("sent") or "") >= INICIO_DASHBOARD]
             # drop drafts that no longer match the chat (new messages arrived)
             if entry.get("draft") and entry["draft"].get("for") != _draft_key(entry):
                 entry.pop("draft")

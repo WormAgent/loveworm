@@ -384,9 +384,29 @@
             <div class="help">Entra en cada borrador junto con ejemplos parecidos a la charla. <button type="button" id="btn-guia">Rehacerla</button></div>
           </div>
           <div>
-            <label for="set-model">Modelo</label>
-            <select id="set-model"></select>
-            <div class="help">Se usa para analizar a cada persona y escribir borradores. Haiku es el que menos gasta.</div>
+            <label>Modelo</label>
+            <div class="two">
+              <div><label for="set-model-borrador">Para escribir</label><select id="set-model-borrador"></select></div>
+              <div><label for="set-model">Para analizar</label><select id="set-model"></select></div>
+            </div>
+            <div class="help">Escribir necesita leer bien la charla: Sonnet o mejor. Para analizar a cada persona alcanza con Haiku, que es el que menos gasta.</div>
+          </div>
+          <div id="api-box">
+            <label>Otra API (compatible con OpenAI)</label>
+            <div class="two">
+              <div><label for="api-url">URL base</label><input id="api-url" type="text" placeholder="https://api.openai.com/v1" list="api-urls"></div>
+              <div><label for="api-modelo">Modelo</label><input id="api-modelo" type="text" placeholder="gpt-4.1, gemini-2.5-pro..."></div>
+            </div>
+            <datalist id="api-urls">
+              <option value="https://api.openai.com/v1">OpenAI</option>
+              <option value="https://openrouter.ai/api/v1">OpenRouter</option>
+              <option value="https://generativelanguage.googleapis.com/v1beta/openai">Gemini</option>
+              <option value="https://api.groq.com/openai/v1">Groq</option>
+              <option value="https://api.deepseek.com/v1">DeepSeek</option>
+              <option value="http://localhost:11434/v1">Ollama (local)</option>
+            </datalist>
+            <div><label for="api-key">API key</label><input id="api-key" type="password" autocomplete="off"></div>
+            <div class="help">Se usa en lo que tenga elegido "Otra API". La key queda solo en tu compu (data/). Sirve OpenAI, OpenRouter, Gemini, Groq, DeepSeek u Ollama.</div>
           </div>
           <div>
             <label>Estilo de los mensajes</label>
@@ -579,8 +599,9 @@ function draftBox(p, firstMessage, s) {
     ta.addEventListener("input", () => edits.set(p.id, ta.value));
     const label = autoSend ? `${salidaTexto(p, s)} · descartalo para cancelarlo`
       : firstMessage ? "Primer mensaje sugerido" : "Respuesta sugerida";
+    const varias = ta.value.includes("\n") ? " · cada línea sale como un mensaje aparte" : "";
     return el("div", {class: "draft"},
-      el("div", {class: "lbl"}, label),
+      el("div", {class: "lbl"}, label + varias),
       ta,
       el("div", {class: "row"},
         el("button", {class: "primary", onclick: () => {
@@ -983,14 +1004,28 @@ async function poll() {
 // --- configuración (pestaña) ---
 
 let configCargada = false;
+const NOMBRES_MODELO = {haiku: "Claude Haiku", sonnet: "Claude Sonnet", opus: "Claude Opus", api: "Otra API"};
+function mostrarApi() {
+  const usa = [$("set-model").value, $("set-model-borrador").value].includes("api");
+  $("api-box").style.display = usa ? "" : "none";
+}
+$("set-model").onchange = mostrarApi;
+$("set-model-borrador").onchange = mostrarApi;
 let fisicoCfg = null;
 
 async function loadSettings() {
   configCargada = true;
   const s = await (await fetch("/api/settings")).json();
   $("set-instructions").value = s.instructions;
-  $("set-model").replaceChildren(...s.models.map(m => el("option", {value: m}, m)));
-  $("set-model").value = s.model;
+  for (const [id, valor] of [["set-model", s.model], ["set-model-borrador", s.model_borrador]]) {
+    $(id).replaceChildren(...s.models.map(m => el("option", {value: m}, NOMBRES_MODELO[m] || m)));
+    $(id).value = valor;
+  }
+  $("api-url").value = s.api.url || "";
+  $("api-modelo").value = s.api.modelo || "";
+  $("api-key").value = "";
+  $("api-key").placeholder = s.api.key_guardada ? "guardada (dejala vacía para no cambiarla)" : "sk-...";
+  mostrarApi();
   $("set-max").value = s.max_activas;
   $("set-tope").value = s.tope_diario;
   $("env-desde").value = s.envio_desde; $("env-hasta").value = s.envio_hasta;
@@ -1056,7 +1091,9 @@ $("btn-guia").onclick = async () => {
 $("set-save").onclick = async () => {
   const estilo = Object.fromEntries([...document.querySelectorAll("#set-estilo input")].map(i => [i.dataset.regla, i.checked]));
   const ok = await post("/api/settings", {
-    instructions: $("set-instructions").value, model: $("set-model").value, estilo,
+    instructions: $("set-instructions").value, model: $("set-model").value,
+    model_borrador: $("set-model-borrador").value, estilo,
+    api: {url: $("api-url").value, modelo: $("api-modelo").value, key: $("api-key").value},
     max_activas: $("set-max").value, tope_diario: $("set-tope").value,
     fisico: leerFisico(), sobre_mi: $("set-sobre").value,
     envio: {envio_desde: $("env-desde").value, envio_hasta: $("env-hasta").value,

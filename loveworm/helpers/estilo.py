@@ -50,17 +50,36 @@ def consulta_de(msgs):
     return " ".join(reversed(ultimos[:4]))
 
 
+def escritos_por_bot(entry):
+    """Textos que mandó LoveWorm en ese chat (borradores), para no aprender de ellos."""
+    return {t.strip() for t in entry.get("enviados_bot") or []}
+
+
+def es_tuyo(m, bot):
+    """Mensaje que escribiste vos, no el bot."""
+    return bool(m.get("from_me")) and (m.get("text") or "").strip() not in bot
+
+
 def _ventanas(cache, excluir, tramo):
-    """Tramos de `tramo` mensajes seguidos que terminan con un mensaje tuyo y tienen al menos 2 tuyos."""
+    """Tramos de `tramo` mensajes seguidos que terminan con un mensaje tuyo y tienen al menos 2 tuyos.
+
+    Se saltean los tramos con mensajes del bot: si no, cuanto más se usa, más se copia a sí mismo.
+    """
     ventanas = []
     for mid, entry in cache.items():
         if mid == excluir:
             continue
+        bot = escritos_por_bot(entry)
         msgs = [m for m in (entry.get("messages") or []) if (m.get("text") or "").strip()]
+        if bot:
+            # se corta en los mensajes del bot, así ningún tramo los incluye
+            msgs = [m if not (m.get("from_me") and m["text"].strip() in bot) else None for m in msgs]
         interes = (entry.get("analysis") or {}).get("interes") or 0
         nombre = entry.get("name") or "Ella"
         for i in range(len(msgs) - tramo + 1):
             bloque = msgs[i:i + tramo]
+            if None in bloque:
+                continue
             if bloque[-1].get("from_me") and sum(1 for m in bloque if m.get("from_me")) >= 2:
                 ella = " ".join(m["text"] for m in bloque if not m.get("from_me"))
                 ventanas.append({"mid": mid, "i": i, "nombre": nombre, "bloque": bloque,
@@ -131,8 +150,13 @@ _RISA = re.compile(r"(?:ja|js|je|ji){2,}")
 
 
 def mensajes_propios(cache):
-    return [m["text"].strip() for e in cache.values() for m in (e.get("messages") or [])
-            if m.get("from_me") and (m.get("text") or "").strip()]
+    """Lo que escribiste vos en todos los chats, sin lo que mandó el bot."""
+    textos = []
+    for e in cache.values():
+        bot = escritos_por_bot(e)
+        textos += [m["text"].strip() for m in (e.get("messages") or [])
+                   if es_tuyo(m, bot) and (m.get("text") or "").strip()]
+    return textos
 
 
 def estadisticas(cache):

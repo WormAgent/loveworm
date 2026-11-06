@@ -156,6 +156,7 @@ def save_settings():
 
     try:
         bot.update_settings(instructions=campo("instructions", str), model=campo("model", str),
+                            model_borrador=campo("model_borrador", str), api=body.get("api"),
                             auto_drafts=campo("auto_drafts", bool), auto_send=campo("auto_send", bool),
                             estilo_opts=body.get("estilo"), max_activas=campo("max_activas", int),
                             tope_diario=campo("tope_diario", int), fisico_opts=body.get("fisico"),
