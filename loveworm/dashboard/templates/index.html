@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Loveworm</title>
+<link rel="icon" href="/static/loveworm.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/static/loveworm.png">
 <style>
   :root {
     --bg: #f6f5f3; --panel: #ffffff; --text: #1d1b19; --muted: #6f6a64; --line: #e6e2dd;
@@ -22,6 +24,7 @@
   [hidden] { display: none !important; }
   body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
   header { display: flex; align-items: center; gap: 12px; padding: 14px 20px; border-bottom: 1px solid var(--line); background: var(--panel); position: sticky; top: 0; z-index: 3; }
+  header .logo { width: 40px; height: 40px; margin: -6px -4px -6px -6px; }
   header h1 { font-size: 18px; margin: 0; letter-spacing: -.01em; }
   .pill { padding: 3px 10px; border-radius: 99px; background: var(--chip); color: var(--muted); font-size: 12px; font-weight: 600; }
   .pill.on { background: color-mix(in srgb, var(--ok) 15%, transparent); color: var(--ok); }
@@ -194,6 +197,7 @@
 </head>
 <body>
 <header>
+  <img class="logo" src="/static/loveworm.svg" alt="" width="40" height="40">
   <h1>Loveworm</h1>
   <span id="status" class="pill">apagado</span>
   <span id="modo-pill" class="pill">modo manual</span>
