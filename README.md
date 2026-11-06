@@ -12,6 +12,10 @@ borradores de mensajes escritos por Claude que solo se envían cuando vos los ap
 - **Matches nuevos**: los matches sin chat, con su bio y un primer mensaje sugerido.
 - **Borradores con aprobación**: Claude sugiere el primer mensaje o la respuesta siguiendo las instrucciones de la
   configuración. Nada se envía sin que toques **Enviar** y lo confirmes.
+- **Piloto automático** (opcional): en los pocos chats que automatiza, escribe y envía solo, con una demora al azar
+  antes de cada respuesta, solo dentro de tu horario de envío y con un tope por día. Hasta que sale, lo podés descartar.
+- **Swipes diarios**: una meta de likes por día, en tandas con pausas al azar dentro de una franja horaria. Antes de
+  cada tanda consulta cuántos likes te deja Tinder.
 
 Instagram está en pausa: la web ya no expone los DMs por su API y la lectura por pantalla todavía no es confiable
 (`INSTAGRAM_ENABLED` en `loveworm/dashboard/worker.py`).
@@ -47,6 +51,10 @@ Abrí http://127.0.0.1:5000 y tocá **Iniciar**. Si no estás logueado, iniciá 
 (Log in → Google). Después el dashboard trae tus chats y empieza a analizarlos.
 
 `abrir_dashboard.ps1` levanta el servidor si no está corriendo y abre el dashboard; sirve para un acceso directo.
+
+Para que las automatizaciones corran sin tocar nada: corré `install_task.ps1` una vez (crea la tarea
+"LoveWorm - Dashboard", que levanta el servidor al iniciar sesión) y prendé **Abrir Chrome solo al iniciar el
+dashboard** en Configuración.
 
 ## Estructura
 

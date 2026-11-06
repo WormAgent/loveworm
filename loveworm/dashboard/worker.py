@@ -51,6 +51,13 @@ DEFAULT_SETTINGS = {
     "sobre_mi": "",
     # swipes manuales y automáticos diarios (ver helpers/swipes.py)
     "swipes": swipes.DEFAULT,
+    # envíos automáticos: solo dentro de este horario y con una demora humana antes de contestar
+    "envio_desde": 10,
+    "envio_hasta": 24,
+    "demora_min": 3,
+    "demora_max": 25,
+    # al levantar el dashboard abre Chrome solo, así las automatizaciones corren sin tocar nada
+    "abrir_al_iniciar": False,
 }
 MODELS = ("haiku", "sonnet", "opus")
 
@@ -62,8 +69,9 @@ INSTAGRAM_ENABLED = False
 IG_MAX_PER_RUN = 30
 IG_REREAD_SECONDS = 24 * 3600
 
-# pausa antes de mandar solo, para no disparar en el mismo segundo en que claude terminó
-PAUSA_ENVIO = (8, 30)
+# entre dos envíos automáticos seguidos (por ejemplo, al abrir el horario con varios en cola)
+SEPARACION_ENVIOS = (60, 240)
+LIMITES_ENVIO = {"envio_desde": (0, 23), "envio_hasta": (1, 24), "demora_min": (0, 240), "demora_max": (0, 240)}
 
 
 def _error_de_sesion(msg):
@@ -160,6 +168,11 @@ class Bot:
         threading.Thread(target=self._loop, daemon=True).start()
         threading.Thread(target=self._refresco_automatico, daemon=True).start()
         threading.Thread(target=self._swipes_automaticos, daemon=True).start()
+        threading.Thread(target=self._envios_programados, daemon=True).start()
+        self._prox_envio = 0.0
+        if self.settings.get("abrir_al_iniciar"):
+            self.log("Abriendo Chrome solo (configurado para abrir al iniciar).")
+            self.jobs.put(("start", {}))
         # analysis only needs the stored chats, so it starts without opening chrome
         self._schedule_llm()
 
@@ -287,7 +300,7 @@ class Bot:
 
     def update_settings(self, instructions=None, model=None, auto_drafts=None, auto_send=None,
                         estilo_opts=None, max_activas=None, tope_diario=None, fisico_opts=None,
-                        sobre_mi=None, swipes_opts=None):
+                        sobre_mi=None, swipes_opts=None, envio=None):
         """Guarda solo lo que viene (None = se conserva), así cada control de la interfaz
         puede cambiar lo suyo sin pisar el resto."""
         if model is not None and model not in MODELS:
@@ -295,6 +308,18 @@ class Bot:
         for nombre, valor, minimo, maximo in (("max_activas", max_activas, 1, 20), ("tope_diario", tope_diario, 0, 200)):
             if valor is not None and not minimo <= valor <= maximo:
                 raise ValueError(f"{nombre} tiene que estar entre {minimo} y {maximo}")
+        envio = {k: int(v) for k, v in (envio or {}).items() if k in LIMITES_ENVIO or k == "abrir_al_iniciar"}
+        for k, (minimo, maximo) in LIMITES_ENVIO.items():
+            if k in envio and not minimo <= envio[k] <= maximo:
+                raise ValueError(f"{k} tiene que estar entre {minimo} y {maximo}")
+        prueba = {k: self.settings[k] for k in LIMITES_ENVIO} | envio
+        if prueba["envio_desde"] >= prueba["envio_hasta"]:
+            raise ValueError("El horario de envío tiene que terminar después de empezar")
+        if prueba["demora_min"] > prueba["demora_max"]:
+            raise ValueError("La demora mínima no puede ser mayor que la máxima")
+        if "abrir_al_iniciar" in envio:
+            envio["abrir_al_iniciar"] = bool(envio["abrir_al_iniciar"])
+        self.settings.update(envio)
         if auto_send:
             auto_drafts = True  # el envío automático sale de un borrador
         if auto_drafts and not self.settings["auto_drafts"]:
@@ -361,6 +386,8 @@ class Bot:
             "envios_tope": self.settings["tope_diario"],
             "envios_ultimos": self.envios.get("ultimos", [])[:10],
             "swipes": self._swipes_estado(),
+            "envio": {k: self.settings[k] for k in (*LIMITES_ENVIO, "abrir_al_iniciar")},
+            "en_horario": self._en_horario(),
             "fisico": fisico.completar(self.settings.get("fisico")),
             "people": people,
             "new": new,
@@ -718,11 +745,12 @@ class Bot:
             if self.cupos.estado(match_id) != "activa":
                 self.log(f"Envío automático a {nombre} descartado: le liberaron el cupo.")
                 return
-            time.sleep(random.uniform(*PAUSA_ENVIO))
-            # se vuelve a chequear DESPUÉS de la pausa: tenés esos segundos para arrepentirte
-            # descartando el borrador, o por si llegó un mensaje nuevo en el medio
+            # se vuelve a chequear al salir: pudiste descartarlo, o llegó un mensaje nuevo en el medio
             with self.lock:
-                actual = (self.cache.get(match_id, {}).get("draft") or {}).get("text")
+                draft = self.cache.get(match_id, {}).get("draft") or {}
+                # si el envío falla, el programador lo reintenta en la próxima vuelta
+                draft.pop("encolado", None)
+                actual = draft.get("text")
             if actual != text:
                 self.log(f"Envío automático a {nombre} cancelado: el borrador ya no está.")
                 return
@@ -781,6 +809,8 @@ class Bot:
             # ya le escribimos y no contestó: el bot espera sin insistir
             "esperando": entry.get("esperando") == _chat_key(entry),
             "ultimo_envio_auto": bool(entry.get("ultimo_envio_auto")),
+            # cuándo sale solo el borrador (epoch), si el piloto lo programó
+            "draft_send_at": (draft or {}).get("send_at"),
         }
 
     def _wants_draft(self, mid, entry):
@@ -900,7 +930,7 @@ class Bot:
             self._save_cache()
 
             if self._auto_envia(match_id):
-                self.jobs.put(("send", {"match_id": match_id, "text": text, "auto": True}))
+                self._programar_envio(match_id)
             else:
                 motivo = ("envío automático apagado" if not self.settings["auto_send"]
                           else "tope diario alcanzado" if not self._puede_enviar_auto()
@@ -919,11 +949,48 @@ class Bot:
         with self.lock:
             pendientes = [(mid, (e.get("draft") or {}).get("text")) for mid, e in self.cache.items()
                           if (e.get("draft") or {}).get("text")]
-        for mid, texto in pendientes:
-            if self._auto_envia(mid):
-                nombre = self.cache.get(mid, {}).get("name", "?")
-                self.log(f"Se encola el borrador que estaba esperando de {nombre}.")
+        for mid, _ in pendientes:
+            if self._auto_envia(mid) and not self.cache[mid]["draft"].get("send_at"):
+                self._programar_envio(mid)
+
+    def _en_horario(self, ahora=None):
+        hora = (ahora or datetime.now()).hour
+        return self.settings["envio_desde"] <= hora < self.settings["envio_hasta"]
+
+    def _programar_envio(self, match_id):
+        """Le pone hora de salida al borrador: ahora más una demora al azar, como alguien que
+        ve el mensaje un rato después. Fuera del horario espera a que abra (y se escalona)."""
+        demora = random.uniform(self.settings["demora_min"], self.settings["demora_max"]) * 60
+        with self.lock:
+            entry = self.cache.get(match_id) or {}
+            draft = entry.get("draft")
+            if not draft:
+                return
+            draft["send_at"] = time.time() + demora
+            nombre = entry.get("name", "?")
+        hora = time.strftime("%H:%M", time.localtime(draft["send_at"]))
+        extra = "" if self._en_horario() else f" (o cuando abra el horario, a las {self.settings['envio_desde']} h)"
+        self.log(f"Respuesta a {nombre} programada para las {hora}{extra}.")
+        self._save_cache()
+
+    def _envios_programados(self):
+        """Saca los borradores cuya hora llegó, de a uno y separados, solo dentro del horario."""
+        while not self._apagado.wait(20):
+            if not self.settings["auto_send"] or not self._en_horario() or time.time() < self._prox_envio:
+                continue
+            ahora = time.time()
+            with self.lock:
+                vencidos = sorted((d["send_at"], mid, d["text"]) for mid, e in self.cache.items()
+                                  if (d := e.get("draft")) and d.get("send_at") and d["send_at"] <= ahora
+                                  and not d.get("encolado"))
+            for _, mid, texto in vencidos:
+                if not self._auto_envia(mid):
+                    continue
+                with self.lock:
+                    self.cache[mid]["draft"]["encolado"] = True
                 self.jobs.put(("send", {"match_id": mid, "text": texto, "auto": True}))
+                self._prox_envio = time.time() + random.uniform(*SEPARACION_ENVIOS)
+                break
 
     # --- tope diario de envíos automáticos ---
 

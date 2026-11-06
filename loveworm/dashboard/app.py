@@ -159,7 +159,7 @@ def save_settings():
                             auto_drafts=campo("auto_drafts", bool), auto_send=campo("auto_send", bool),
                             estilo_opts=body.get("estilo"), max_activas=campo("max_activas", int),
                             tope_diario=campo("tope_diario", int), fisico_opts=body.get("fisico"),
-                            sobre_mi=campo("sobre_mi", str))
+                            sobre_mi=campo("sobre_mi", str), envio=body.get("envio"))
     except (TypeError, ValueError) as e:
         return jsonify(ok=False, error=str(e)), 400
     return jsonify(ok=True)

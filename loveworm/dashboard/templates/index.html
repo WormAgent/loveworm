@@ -3,316 +3,334 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Loveworm</title>
+<title>LoveWorm</title>
 <link rel="icon" href="/static/loveworm.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/static/loveworm.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=VT323&display=swap" rel="stylesheet">
 <style>
+  /* ---- LoveWorm: el mismo tubo ámbar que WorkWorm (CRT, menú tipo GRUB) ---- */
   :root {
-    --bg: #f6f5f3; --panel: #ffffff; --text: #1d1b19; --muted: #6f6a64; --line: #e6e2dd;
-    --accent: #e8445a; --accent-ink: #ffffff; --ok: #1f8a4c; --warn: #b7791f; --chip: #f1eeea;
-    --bubble-me: #e8445a; --bubble-me-ink: #ffffff; --bubble-them: #f1eeea;
-    --hot: #1f8a4c; --warm: #b7791f; --cold: #6f6a64; --shade: rgba(0, 0, 0, .55);
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #141312; --panel: #1d1c1a; --text: #f1eeea; --muted: #a29c95; --line: #2e2c29;
-      --accent: #ff5a70; --chip: #2a2825; --bubble-them: #2a2825;
-      --hot: #3fbf75; --warm: #e0a43a; --cold: #a29c95;
-    }
+    --amber: #ffa526; --amber-hi: #ffe2b8; --amber-dim: #7a4a0e; --band: rgba(255, 140, 20, .32);
+    --soft: rgba(255, 140, 20, .05); --bg: #120800; --bg2: #1f1000; --alert: #ff6a2a;
+    --glow: 0 0 2px rgba(255,165,38,.7), 0 0 10px rgba(255,120,0,.3);
+    --glow-big: 0 0 4px rgba(255,165,38,.95), 0 0 18px rgba(255,110,0,.5);
+    --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace; --pixel: "VT323", var(--mono);
   }
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
-  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  header { display: flex; align-items: center; gap: 12px; padding: 14px 20px; border-bottom: 1px solid var(--line); background: var(--panel); position: sticky; top: 0; z-index: 3; }
-  header .logo { width: 40px; height: 40px; margin: -6px -4px -6px -6px; }
-  header h1 { font-size: 18px; margin: 0; letter-spacing: -.01em; }
-  .pill { padding: 3px 10px; border-radius: 99px; background: var(--chip); color: var(--muted); font-size: 12px; font-weight: 600; }
-  .pill.on { background: color-mix(in srgb, var(--ok) 15%, transparent); color: var(--ok); }
-  .pill.busy { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
-  .spacer { flex: 1; }
-  .icon-btn { width: 36px; height: 36px; padding: 0; display: grid; place-items: center; border-radius: 50%; }
-  .icon-btn svg { width: 19px; height: 19px; }
-  main { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 16px; padding: 16px 20px; max-width: 1800px; margin: 0 auto; align-items: start; }
-  @media (max-width: 900px) { main { grid-template-columns: 1fr; padding: 12px 16px; } }
-  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
-  .panel h2, .panel summary { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 12px; font-weight: 700; }
-  details.panel summary { cursor: pointer; margin: 0; }
-  details.panel[open] summary { margin-bottom: 12px; }
-  .step { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 11px; margin-right: 6px; letter-spacing: 0; }
-  aside { display: flex; flex-direction: column; gap: 16px; position: sticky; top: 70px; }
-  @media (max-width: 900px) { aside { position: static; } }
-  button { font: inherit; border: 1px solid var(--line); background: var(--panel); color: var(--text); padding: 7px 12px; border-radius: 8px; cursor: pointer; }
-  button:hover { border-color: var(--muted); }
-  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
-  button.small { padding: 4px 10px; font-size: 12px; }
-  button:disabled { opacity: .5; cursor: default; }
-  .row { display: flex; gap: 8px; flex-wrap: wrap; }
-  label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 3px; }
-  input, textarea, select { font: inherit; width: 100%; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); }
+  html { background: var(--bg); }
+  body { margin: 0; min-height: 100vh; color: var(--amber); font: 14px/1.5 var(--mono); text-shadow: var(--glow);
+    background:
+      radial-gradient(ellipse 60% 45% at 50% 30%, rgba(120, 60, 0, .55) 0%, rgba(60, 28, 0, .35) 45%, transparent 75%),
+      radial-gradient(ellipse at center, #1e0e00 0%, #120800 55%, #060300 100%) fixed; }
+  /* tubo: líneas de barrido, viñeta, reflejo y un parpadeo leve; nunca bloquea clics */
+  body::before { content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 90;
+    background: repeating-linear-gradient(to bottom, transparent 0 2px, rgba(0,0,0,.25) 3px, transparent 4px); }
+  body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 91;
+    background: radial-gradient(circle at 84% 14%, rgba(255,240,215,.10) 0, rgba(255,220,170,.04) 6%, transparent 14%),
+                radial-gradient(ellipse at center, transparent 58%, rgba(0,0,0,.65) 100%);
+    animation: crt-flicker 7s infinite steps(1); }
+  @keyframes crt-flicker { 0%,100% {opacity: 1} 47% {opacity: .94} 48% {opacity: 1} }
+  ::selection { background: var(--amber); color: var(--bg); }
+  ::-webkit-scrollbar { width: 10px; height: 10px; } ::-webkit-scrollbar-track { background: #0c0600; }
+  ::-webkit-scrollbar-thumb { background: var(--amber-dim); }
+  a { color: var(--amber-hi); }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 22px 20px 60px; }
+  @media (max-width: 600px) { .wrap { padding: 14px 16px 40px; } }
+
+  /* encabezado */
+  .hero { text-align: center; padding: .4rem 0 .9rem; }
+  .hero-brand { display: inline-flex; align-items: center; gap: 1rem; }
+  .hero-title { font-family: var(--pixel); font-size: 3.6rem; line-height: 1; letter-spacing: .14em; text-shadow: var(--glow-big); }
+  .hero-sub { font-size: .8rem; letter-spacing: .3em; margin-top: .3rem; opacity: .85; }
+  .hero-pred { font-size: .9rem; letter-spacing: .06em; text-transform: uppercase; }
+  .hero-pred b { font-family: var(--pixel); font-size: 1.5rem; color: var(--amber-hi); font-weight: 400; }
+  .worm { width: 84px; height: 84px; filter: drop-shadow(0 0 3px rgba(255,165,38,.9)) drop-shadow(0 0 10px rgba(255,110,0,.45));
+    animation: wiggle 1.6s steps(2) infinite; }
+  @keyframes wiggle { 50% { transform: translateY(-3px) skewX(-4deg); } }
+  @media (max-width: 600px) { .hero-title { font-size: 2.6rem; } .worm { width: 60px; height: 60px; } }
+
+  /* barra de estado */
+  .statusbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; border-top: 1px solid var(--amber-dim);
+    border-bottom: 1px solid var(--amber-dim); padding: .4rem .6rem; margin-bottom: .8rem; background: var(--soft); }
+  .status-line { flex: 1 1 260px; min-width: 0; font-size: .88rem; letter-spacing: .05em; text-transform: uppercase;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sb-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .seg { display: inline-flex; border: 1px solid var(--amber-dim); }
+  .seg button { border: none; border-right: 1px solid var(--amber-dim); }
+  .seg button:last-child { border-right: none; }
+  .seg button.on { background: var(--band); color: var(--amber-hi); font-weight: 600; }
+
+  /* controles: planos, con la banda de "seleccionado" */
+  button { font: inherit; font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; color: var(--amber);
+    text-shadow: var(--glow); background: transparent; border: 1px solid var(--amber-dim); padding: 6px 12px; cursor: pointer; border-radius: 0; }
+  button:hover { background: var(--band); border-color: var(--amber); }
+  button.primary { background: var(--band); border-color: var(--amber); color: var(--amber-hi); font-weight: 600; }
+  button:disabled { opacity: .3; cursor: default; background: transparent; }
+  label { display: block; font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; opacity: .85; margin-bottom: 3px; }
+  input, textarea, select { font: inherit; font-size: .88rem; width: 100%; padding: 7px 9px; border: 1px solid var(--amber-dim); border-radius: 0;
+    background: #0c0600; color: var(--amber); caret-color: var(--amber); text-shadow: var(--glow); }
+  input:focus, textarea:focus, select:focus { outline: none; border-color: var(--amber); }
   textarea { resize: vertical; }
-  .fields { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; }
-  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; margin-top: 12px; }
-  .stats b { display: block; font-size: 20px; }
-  .stats span { font-size: 12px; color: var(--muted); }
-  .log { font: 12px/1.5 ui-monospace, Consolas, monospace; color: var(--muted); max-height: 260px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
-  .tabs { display: flex; gap: 4px; margin-bottom: 14px; align-items: center; flex-wrap: wrap; }
-  .tab { border: none; background: none; padding: 8px 12px; font-weight: 600; color: var(--muted); border-radius: 8px; }
-  .tab.active { background: var(--chip); color: var(--text); }
-  .tab .n { font-weight: 500; margin-left: 4px; }
-  .search { max-width: 220px; margin-left: auto; }
-  .muted { color: var(--muted); }
-  .empty { padding: 28px; text-align: center; color: var(--muted); grid-column: 1 / -1; border: 1px dashed var(--line); border-radius: 12px; }
-  .start-here { padding: 40px; text-align: center; }
-  .start-here h2 { font-size: 18px; text-transform: none; letter-spacing: 0; color: var(--text); }
-  .start-here p { color: var(--muted); max-width: 460px; margin: 0 auto; }
-  .notice { font-size: 13px; background: color-mix(in srgb, var(--warn) 14%, transparent); color: var(--warn); border-radius: 8px; padding: 8px 12px; margin-bottom: 12px; display: flex; gap: 8px; align-items: center; }
-  .notice button { margin-left: auto; padding: 4px 10px; font-size: 12px; }
-  .tag { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 99px; background: var(--chip); color: var(--muted); white-space: nowrap; }
-  .tag.on { background: color-mix(in srgb, var(--ok) 15%, transparent); color: var(--ok); }
-  .tag.warn { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
-  .tag.busy { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+  .check { display: flex; gap: 8px; align-items: flex-start; text-transform: none; letter-spacing: 0; font-size: .85rem; opacity: 1; }
+  .check input, input[type=checkbox], input[type=radio] { width: auto; accent-color: var(--amber); margin-top: 3px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .help { font-size: .75rem; opacity: .65; margin-top: 6px; }
+  .muted { opacity: .7; }
+  .fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin-bottom: 10px; }
 
-  /* modo de automatización */
-  .modo { display: flex; gap: 8px; align-items: flex-start; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; margin: 0 0 6px; }
-  .modo:has(input:checked) { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
-  .modo input { width: auto; margin-top: 3px; }
-  .modo b { display: block; color: var(--text); font-size: 13px; }
-  .modo span { font-size: 12px; color: var(--muted); }
+  /* avisos [!!] */
+  .notice { display: flex; gap: 10px; align-items: center; padding: .7rem 1rem; margin-bottom: .6rem; font-size: .88rem;
+    background: rgba(255, 106, 42, .12); color: #ff8c4a; border-left: 2px solid var(--alert); }
+  .notice.info { background: rgba(255, 140, 20, .07); color: var(--amber); border-left-color: var(--amber-dim); }
+  .notice button { margin-left: auto; padding: 4px 10px; flex: none; }
 
-  /* pestaña Automatización */
-  .how { margin-bottom: 14px; font-size: 13px; }
-  .how summary { cursor: pointer; font-weight: 600; }
-  .how ol { margin: 8px 0 0; padding-left: 20px; color: var(--muted); }
-  .how li { margin-bottom: 4px; }
-  .how li b { color: var(--text); }
-  .summary { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
-  .summary .stat { padding: 8px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
-  .summary .stat b { display: block; font-size: 18px; line-height: 1.2; }
-  .summary .stat span { font-size: 12px; color: var(--muted); }
-  .sec { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 18px 0 8px; display: flex; align-items: center; gap: 8px; }
-  .sec .n { background: var(--chip); border-radius: 99px; padding: 0 8px; font-size: 12px; letter-spacing: 0; }
-  .alist { display: flex; flex-direction: column; gap: 10px; }
-  .arow { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
-  .thumb { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; background: var(--chip); display: grid; place-items: center; color: var(--muted); font-weight: 700; font-size: 20px; }
+  /* pestañas = entradas de un menú GRUB */
+  .tabs { display: flex; justify-content: center; flex-wrap: wrap; gap: .2rem; border-bottom: 1px dashed var(--amber-dim); margin: .4rem 0 1rem; }
+  .tab { border: none; padding: .35rem .9rem; font-size: .82rem; }
+  .tab.active { background: var(--band); color: var(--amber-hi); font-weight: 600; }
+  .tab .n { margin-left: .4em; opacity: .75; font-weight: 400; }
+  .toolbar { display: flex; justify-content: flex-end; margin-bottom: .8rem; }
+  .search { max-width: 260px; }
+
+  /* títulos de sección y paneles */
+  .panel-title { font-family: var(--pixel); font-size: 1.45rem; text-transform: uppercase; letter-spacing: .04em; line-height: 1.2;
+    margin: 1.2rem 0 .5rem; text-shadow: var(--glow-big); display: flex; gap: .5rem; align-items: baseline; }
+  .panel-title .n { font-size: 1.1rem; opacity: .8; }
+  .panel-note { font-size: .75rem; opacity: .65; margin: -.25rem 0 .7rem; text-transform: uppercase; letter-spacing: .04em; }
+  .box { border: 1px solid var(--amber-dim); background: rgba(255,140,20,.03); padding: 14px 16px; }
+  .box h3 { font-family: var(--pixel); font-weight: 400; font-size: 1.35rem; text-transform: uppercase; margin: 0 0 4px; letter-spacing: .04em; }
+  .box > p.muted { font-size: .8rem; margin: 0 0 12px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+  .empty { padding: 28px; text-align: center; opacity: .7; grid-column: 1 / -1; border: 1px dashed var(--amber-dim); }
+  .empty::before { content: "-- "; } .empty::after { content: " --"; }
+  .start-here { padding: 40px 20px; text-align: center; }
+  .start-here p { max-width: 520px; margin: 0 auto 16px; opacity: .85; }
+
+  /* métricas */
+  .summary { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+  .stat { border: 1px solid var(--amber-dim); padding: 8px 14px; background: rgba(255,140,20,.04); min-width: 150px; }
+  .stat b { display: block; font-family: var(--pixel); font-weight: 400; font-size: 2.1rem; line-height: 1; text-shadow: var(--glow-big); color: var(--amber-hi); }
+  .stat span { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; opacity: .85; }
+  .meter { height: .6rem; margin-top: 6px; background: repeating-linear-gradient(90deg, rgba(255,165,38,.09) 0 6px, transparent 6px 8px); }
+  .meter div { height: 100%; box-shadow: 0 0 6px rgba(255,140,0,.45); background: repeating-linear-gradient(90deg, var(--amber) 0 6px, transparent 6px 8px); }
+
+  /* etiquetas */
+  .tag { display: inline-block; border: 1px solid var(--amber-dim); padding: 0 .4em; font-size: .7rem; letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; }
+  .tag.on { border-color: var(--amber); color: var(--amber-hi); }
+  .tag.warn { border-color: var(--alert); color: #ff8c4a; }
+  .tag.busy { border-style: dashed; }
+  .score, .mini { display: inline-grid; place-items: center; min-width: 2.2em; padding: 0 .3em; font-family: var(--pixel); font-size: 1.25rem; line-height: 1.15; border: 1px solid var(--amber-dim); }
+  .score.hot, .mini.hot { border-color: var(--amber-hi); color: var(--amber-hi); background: var(--band); }
+  .score.warm, .mini.warm { border-color: var(--amber); }
+  .score.cold, .mini.cold, .score.zero, .mini.zero, .score.pend { opacity: .6; }
+
+  /* filas de chats (pestaña Piloto) */
+  .alist { display: flex; flex-direction: column; }
+  .arow { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 12px; padding: 10px 8px; border-bottom: 1px dotted rgba(122,74,14,.6); }
+  .arow:hover { background: rgba(255,140,20,.08); }
+  .thumb { width: 52px; height: 52px; object-fit: cover; border: 1px solid var(--amber-dim); background: #0c0600; display: grid; place-items: center;
+    font-family: var(--pixel); font-size: 1.6rem; filter: sepia(.35) saturate(.9); }
   .arow .top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .arow .name { font-weight: 700; font-size: 15px; }
-  .arow .snippet { font-size: 13px; color: var(--muted); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .arow .name { font-weight: 600; color: var(--amber-hi); }
+  .arow .snippet { font-size: .8rem; opacity: .75; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .arow .phase { margin-top: 6px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
-  .arow .draft { margin-top: 8px; }
-  .arow .actions { margin-top: 8px; padding-top: 0; }
-  .mini { display: inline-grid; place-items: center; min-width: 28px; height: 22px; padding: 0 6px; border-radius: 99px; font-weight: 800; font-size: 12px; color: #fff; }
-  .mini.hot { background: var(--hot); } .mini.warm { background: var(--warm); } .mini.cold { background: #77706a; } .mini.zero { background: #4a4541; }
-  .sent { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
-  .sent:last-child { border-bottom: none; }
-  .sent b { white-space: nowrap; }
-  .sent .t { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
-  .sent time { color: var(--muted); font-size: 12px; white-space: nowrap; }
-  details.paused { margin-top: 18px; }
-  details.paused summary { cursor: pointer; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 700; }
-  details.paused .alist { margin-top: 8px; }
+  .actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .actions button, .actions a button { padding: 4px 9px; font-size: .72rem; }
+  .sent { display: grid; grid-template-columns: minmax(80px, auto) 1fr auto; gap: 12px; padding: 6px 8px; border-bottom: 1px dotted rgba(122,74,14,.6); font-size: .82rem; }
+  .sent b { color: var(--amber-hi); white-space: nowrap; }
+  .sent .t { opacity: .8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sent time { opacity: .7; white-space: nowrap; font-size: .75rem; }
+  details.fold summary { cursor: pointer; font-family: var(--pixel); font-size: 1.3rem; text-transform: uppercase; margin: 1.2rem 0 .4rem; }
+  details.how { margin-bottom: 12px; font-size: .82rem; }
+  details.how summary { cursor: pointer; text-transform: uppercase; letter-spacing: .06em; font-size: .78rem; }
+  details.how ol { margin: 8px 0 0; padding-left: 20px; opacity: .85; }
+  details.how li { margin-bottom: 4px; }
 
+  /* galería */
   .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
-  @media (max-width: 420px) { .gallery { grid-template-columns: 1fr; } }
-  .card { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--panel); display: flex; flex-direction: column; }
-  .photo { position: relative; aspect-ratio: 4 / 5; background: var(--chip); }
+  .card { border: 1px solid var(--amber-dim); background: rgba(255,140,20,.03); display: flex; flex-direction: column; }
+  .card:hover { border-color: var(--amber); }
+  .photo { position: relative; aspect-ratio: 4 / 5; background: #0c0600; border-bottom: 1px solid var(--amber-dim); }
   .photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .photo .none { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 13px; }
-  .nav { position: absolute; top: 50%; transform: translateY(-50%); width: 34px; height: 34px; border-radius: 50%; border: none; padding: 0;
-         background: var(--shade); color: #fff; font-size: 20px; line-height: 34px; text-align: center; opacity: .85; }
-  .nav:hover { opacity: 1; }
-  .nav.prev { left: 8px; } .nav.next { right: 8px; }
+  .photo .none { position: absolute; inset: 0; display: grid; place-items: center; font-size: .8rem; opacity: .7; padding: 12px; text-align: center; }
+  .nav { position: absolute; top: 50%; transform: translateY(-50%); width: 32px; height: 40px; padding: 0; font-size: 1.2rem;
+    background: rgba(12,6,0,.7); border-color: var(--amber-dim); }
+  .nav.prev { left: 6px; } .nav.next { right: 6px; }
   .dots { position: absolute; top: 8px; left: 8px; right: 8px; display: flex; gap: 3px; }
-  .dots span { flex: 1; height: 3px; border-radius: 2px; background: rgba(255, 255, 255, .4); }
-  .dots span.on { background: #fff; }
-  .badge { position: absolute; left: 10px; bottom: 10px; display: flex; align-items: center; gap: 6px; padding: 4px 10px 4px 4px; border-radius: 99px;
-           background: var(--shade); color: #fff; font-size: 12px; font-weight: 600; max-width: calc(100% - 20px); }
-  .badge .score { min-width: 28px; height: 22px; padding: 0 6px; border-radius: 99px; display: grid; place-items: center; font-weight: 800; color: #fff; }
-  .badge .label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .score.hot { background: var(--hot); } .score.warm { background: var(--warm); } .score.cold { background: #77706a; } .score.zero, .score.pend { background: #4a4541; }
-  .turn { position: absolute; right: 10px; bottom: 10px; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 99px; white-space: nowrap; background: var(--accent); color: #fff; }
+  .dots span { flex: 1; height: 3px; background: rgba(255, 226, 184, .35); }
+  .dots span.on { background: var(--amber-hi); box-shadow: 0 0 6px rgba(255,165,38,.8); }
+  .badge { position: absolute; left: 8px; bottom: 8px; display: flex; align-items: center; gap: 8px; padding: 3px 10px 3px 3px;
+    background: rgba(12,6,0,.82); border: 1px solid var(--amber-dim); font-size: .75rem; max-width: calc(100% - 16px); }
+  .badge .label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; letter-spacing: .04em; }
+  .turn { position: absolute; right: 8px; bottom: 8px; font-size: .7rem; font-weight: 600; padding: 3px 8px; text-transform: uppercase;
+    letter-spacing: .06em; background: var(--band); border: 1px solid var(--amber); color: var(--amber-hi); }
+  .card .body > .tag { align-self: flex-start; }
   .card .body { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
-  .card .name { font-weight: 700; font-size: 16px; }
-  .card .meta { font-size: 12px; color: var(--muted); }
-  .card .txt { font-size: 13px; }
-  .card .txt b { font-weight: 600; }
-  .card .pending { font-size: 13px; color: var(--muted); font-style: italic; }
-  .actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: auto; padding-top: 4px; }
-  .actions button { padding: 5px 10px; font-size: 13px; }
-  .draft { border: 1px dashed var(--accent); border-radius: 10px; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
-  .draft .lbl { font-size: 11px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: .05em; }
-  .draft textarea { min-height: 64px; }
-  .draft .row button { padding: 5px 10px; font-size: 13px; }
+  .card .name { font-family: var(--pixel); font-size: 1.6rem; line-height: 1; color: var(--amber-hi); text-shadow: var(--glow-big); }
+  .card .meta { font-size: .72rem; opacity: .7; text-transform: uppercase; letter-spacing: .04em; }
+  .card .txt { font-size: .82rem; }
+  .card .txt b { color: var(--amber-hi); font-weight: 600; }
+  .pending { font-size: .8rem; opacity: .7; font-style: italic; }
+  .card .actions { margin-top: auto; padding-top: 4px; }
+  .ig-chip { font-size: .75rem; color: var(--amber-hi); }
 
-  dialog { border: 1px solid var(--line); border-radius: 14px; background: var(--panel); color: var(--text); padding: 0; width: min(560px, calc(100vw - 32px)); max-height: calc(100vh - 48px); }
-  dialog::backdrop { background: rgba(0, 0, 0, .5); }
-  .dlg-head { display: flex; align-items: center; gap: 8px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
-  .dlg-head h3 { margin: 0; font-size: 16px; }
-  .dlg-head button { margin-left: auto; }
-  .dlg-body { padding: 16px; overflow: auto; max-height: calc(100vh - 170px); display: flex; flex-direction: column; gap: 12px; }
-  .dlg-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--line); }
-  .thread { display: flex; flex-direction: column; gap: 4px; }
-  .msg { max-width: 82%; padding: 6px 10px; border-radius: 12px; background: var(--bubble-them); white-space: pre-wrap; word-break: break-word; }
-  .msg.me { align-self: flex-end; background: var(--bubble-me); color: var(--bubble-me-ink); }
-  .msg time { display: block; font-size: 10px; opacity: .7; margin-top: 2px; }
-  .toast { position: fixed; right: 20px; bottom: 20px; z-index: 5; width: 280px; padding: 12px 14px; border-radius: 12px;
-           background: var(--panel); border: 1px solid var(--line); box-shadow: 0 8px 28px rgba(0, 0, 0, .25);
-           transition: opacity .3s, transform .3s; }
-  .toast.hide { opacity: 0; transform: translateY(12px); pointer-events: none; }
-  .toast .t-head { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 13px; }
-  .toast .t-head span:last-child { margin-left: auto; color: var(--muted); font-weight: 500; }
-  .toast .bar { height: 4px; border-radius: 2px; background: var(--chip); margin-top: 9px; overflow: hidden; }
-  .toast .bar div { height: 100%; background: var(--accent); width: 0; transition: width .4s; }
-  .spinner { width: 13px; height: 13px; border-radius: 50%; border: 2px solid var(--chip); border-top-color: var(--accent); animation: spin .8s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  @media (max-width: 420px) { .toast { left: 16px; right: 16px; width: auto; } }
-  .ig-status { display: flex; align-items: center; gap: 8px; font-size: 13px; }
-  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex: none; }
-  .dot.on { background: var(--ok); }
-  .dot.busy { background: var(--warn); }
-  .ig-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 99px;
-             background: color-mix(in srgb, #c13584 16%, transparent); color: #d4589f; text-decoration: none; width: fit-content; }
-  .ig-chip:hover { text-decoration: underline; }
-  .chat-tabs { display: flex; gap: 4px; padding: 10px 16px 0; }
-  .check { display: flex; gap: 8px; align-items: flex-start; }
-  .check input { width: auto; margin-top: 3px; }
-  .help { font-size: 12px; color: var(--muted); margin-top: 6px; }
+  /* borradores */
+  .draft { border: 1px dashed var(--amber); padding: 8px; display: flex; flex-direction: column; gap: 6px; background: rgba(255,140,20,.05); }
+  .draft .lbl { font-size: .7rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--amber-hi); }
+  .draft .lbl::before { content: "> "; opacity: .6; }
+  .draft textarea { min-height: 64px; }
+  .draft .row button { padding: 4px 10px; font-size: .72rem; }
+
+  /* swipes */
+  .sw-estado { font-size: .82rem; padding: 8px 12px; border: 1px solid var(--amber-dim); margin-top: 12px; text-transform: uppercase; letter-spacing: .04em; }
+  .sw-estado::before { content: "○ "; }
+  .sw-estado.on { border-color: var(--amber); color: var(--amber-hi); background: var(--band); }
+  .sw-estado.on::before { content: "● "; }
+  .days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; align-items: end; height: 110px; margin-top: 8px; }
+  .days .d { display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; font-size: .7rem; text-transform: uppercase; }
+  .days .d b { font-family: var(--pixel); font-weight: 400; font-size: 1.15rem; }
+  .days .bar { width: 100%; max-width: 30px; min-height: 2px; box-shadow: 0 0 6px rgba(255,140,0,.45);
+    background: repeating-linear-gradient(0deg, var(--amber) 0 5px, transparent 5px 7px); }
+  .days .d.today { color: var(--amber-hi); font-weight: 600; }
+
+  /* configuración */
+  .cfg { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 14px; align-items: start; }
+  .cfg .box > div + div { margin-top: 12px; }
+  .cfg-foot { position: sticky; bottom: 0; z-index: 5; display: flex; justify-content: flex-end; gap: 8px; padding: 10px 0; margin-top: 14px;
+    background: linear-gradient(transparent, var(--bg) 35%); }
+  #fis-attrs { width: 100%; margin-top: 8px; font-size: .8rem; border-collapse: collapse; }
+  #fis-attrs td { padding: 3px 0; border-bottom: 1px dotted rgba(122,74,14,.6); text-transform: uppercase; letter-spacing: .04em; }
+  #fis-attrs select { width: auto; padding: 3px 6px; }
   .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
-  /* pestaña Swipes */
-  .sw-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
-  .sw-grid .panel h3 { margin: 0 0 4px; font-size: 15px; }
-  .sw-grid .panel > .muted { font-size: 13px; margin: 0 0 12px; }
-  .sw-grid .fields { grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); }
-  .sw-switch { display: flex; gap: 8px; align-items: center; font-weight: 600; color: var(--text); font-size: 14px; margin-bottom: 12px; cursor: pointer; }
-  .sw-switch input { width: auto; margin: 0; }
-  .sw-estado { font-size: 13px; padding: 8px 12px; border-radius: 8px; background: var(--chip); margin-top: 10px; }
-  .sw-estado.on { background: color-mix(in srgb, var(--ok) 14%, transparent); color: var(--ok); }
-  .meter { height: 6px; border-radius: 99px; background: var(--chip); overflow: hidden; margin-top: 6px; }
-  .meter div { height: 100%; background: var(--accent); }
-  .days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; align-items: end; height: 90px; margin-top: 8px; }
-  .days .d { display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; font-size: 11px; color: var(--muted); }
-  .days .bar { width: 100%; max-width: 28px; border-radius: 4px 4px 0 0; background: var(--accent); min-height: 2px; }
-  .days .d.today { color: var(--text); font-weight: 700; }
+  /* actividad */
+  .log { font-size: .78rem; line-height: 1.55; white-space: pre-wrap; word-break: break-word; max-height: 70vh; overflow: auto;
+    border: 1px solid var(--amber-dim); padding: 12px 14px; background: #0c0600; }
+
+  /* chat */
+  dialog { border: 1px solid var(--amber); background: var(--bg); color: var(--amber); padding: 0; width: min(600px, calc(100vw - 32px));
+    max-height: calc(100vh - 48px); box-shadow: 0 0 40px rgba(255,120,0,.25); text-shadow: var(--glow); }
+  dialog::backdrop { background: rgba(0, 0, 0, .7); }
+  .dlg-head { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--amber-dim); }
+  .dlg-head h3 { margin: 0; font-family: var(--pixel); font-weight: 400; font-size: 1.6rem; text-transform: uppercase; color: var(--amber-hi); }
+  .dlg-head button { margin-left: auto; }
+  .chat-tabs { display: flex; gap: 4px; padding: 8px 14px 0; }
+  .dlg-body { padding: 14px; overflow: auto; max-height: calc(100vh - 150px); }
+  .thread { display: flex; flex-direction: column; gap: 6px; }
+  .msg { max-width: 82%; padding: 6px 10px; border: 1px solid var(--amber-dim); white-space: pre-wrap; word-break: break-word; font-size: .85rem; }
+  .msg.me { align-self: flex-end; background: var(--band); border-color: var(--amber); color: var(--amber-hi); }
+  .msg time { display: block; font-size: .65rem; opacity: .65; margin-top: 2px; }
+
+  /* progreso de Claude */
+  .toast { position: fixed; right: 20px; bottom: 20px; z-index: 80; width: 300px; padding: 10px 14px; border: 1px solid var(--amber);
+    background: var(--bg); box-shadow: 0 0 24px rgba(255,120,0,.25); transition: opacity .3s, transform .3s; font-size: .78rem; text-transform: uppercase; letter-spacing: .05em; }
+  .toast.hide { opacity: 0; transform: translateY(12px); pointer-events: none; }
+  .toast .t-head { display: flex; gap: 8px; }
+  .toast .t-head span:last-child { margin-left: auto; }
+  .toast .t-head::before { content: "●"; animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  .toast .bar { height: .55rem; margin-top: 8px; background: repeating-linear-gradient(90deg, rgba(255,165,38,.09) 0 6px, transparent 6px 8px); }
+  .toast .bar div { height: 100%; width: 0; transition: width .4s; background: repeating-linear-gradient(90deg, var(--amber) 0 6px, transparent 6px 8px); }
+  @media (max-width: 420px) { .toast { left: 16px; right: 16px; width: auto; } }
 </style>
 </head>
 <body>
-<header>
-  <img class="logo" src="/static/loveworm.svg" alt="" width="40" height="40">
-  <h1>Loveworm</h1>
-  <span id="status" class="pill">apagado</span>
-  <span id="modo-pill" class="pill">modo manual</span>
-  <span class="spacer"></span>
-  <span id="refreshed" class="muted" style="font-size:12px"></span>
-  <button class="icon-btn" id="btn-settings" title="Configuración" aria-label="Configuración">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
-  </button>
-</header>
+<div class="wrap">
+  <header class="hero">
+    <div class="hero-brand">
+      <img class="worm" src="/static/loveworm.svg" alt="" width="84" height="84">
+      <span class="hero-title">LOVEWORM</span>
+    </div>
+    <div class="hero-sub">-HOY-</div>
+    <div class="hero-pred" id="hero-pred"></div>
+  </header>
 
-<main>
-  <aside>
-    <section class="panel">
-      <h2><span class="step">1</span>Conexión</h2>
-      <div class="ig-status"><span class="dot" id="conn-dot"></span><span id="conn-text">Navegador cerrado</span></div>
-      <div class="row" style="margin-top:12px">
-        <button class="primary" id="btn-start">Iniciar</button>
-        <button id="btn-refresh">Actualizar chats</button>
-        <button id="btn-close">Cerrar navegador</button>
+  <div class="statusbar">
+    <div class="status-line" id="status-line">○ Cargando</div>
+    <div class="sb-actions">
+      <button class="primary" id="btn-main">▶ Iniciar</button>
+      <button id="btn-close" title="Cierra el Chrome del bot">⏏ Cerrar</button>
+      <div class="seg" id="modo-seg" role="radiogroup" aria-label="Modo">
+        <button data-modo="manual" title="Claude solo analiza. Vos pedís cada mensaje y lo enviás.">Manual</button>
+        <button data-modo="aprobacion" title="Claude deja borradores en los chats automatizados. Vos los aprobás.">Aprobación</button>
+        <button data-modo="auto" title="Claude escribe y envía solo en los chats automatizados, en tu horario y con un tope por día.">Piloto</button>
       </div>
-      <div class="help" id="conn-help"></div>
-    </section>
+    </div>
+  </div>
 
-    <section class="panel">
-      <h2><span class="step">2</span>Modo</h2>
-      <label class="modo"><input type="radio" name="modo" value="manual">
-        <div><b>Manual</b><span>Claude solo analiza a las personas. Vos pedís cada mensaje y lo enviás.</span></div></label>
-      <label class="modo"><input type="radio" name="modo" value="aprobacion">
-        <div><b>Con aprobación</b><span>Claude deja borradores en los chats automatizados. Vos los revisás y tocás Enviar.</span></div></label>
-      <label class="modo"><input type="radio" name="modo" value="auto">
-        <div><b>Automático</b><span>Claude escribe y envía solo en los chats automatizados, con pausas y un tope por día.</span></div></label>
-      <div class="help" id="modo-help"></div>
-    </section>
+  <div id="notices"></div>
 
-    <section class="panel" id="ig-panel" hidden>
-      <h2>Instagram</h2>
-      <div class="ig-status"><span class="dot" id="ig-dot"></span><span id="ig-text">No conectado</span></div>
-      <button id="btn-ig" style="margin-top:10px">Conectar Instagram</button>
-      <div class="help">Solo lectura. Se vinculan los chats de Instagram de las personas que te pasaron su @ por Tinder.</div>
-    </section>
-
-    <details class="panel">
-      <summary>Log</summary>
-      <div class="log" id="log"></div>
-    </details>
-  </aside>
-
-  <section class="panel start-here" id="empty-state" hidden>
-    <h2>Todavía no hay chats</h2>
-    <p>Tocá <b>Iniciar</b> (paso 1) para abrir el navegador y traer tus chats y matches de Tinder.
+  <section class="box start-here" id="empty-state" hidden>
+    <h3>Todavía no hay chats</h3>
+    <p>Tocá <b>Iniciar</b> para abrir el navegador y traer tus chats y matches de Tinder.
        Si no estás logueado, iniciá sesión en el Chrome que se abre (Log in → Google).</p>
+    <button class="primary" onclick="post('/api/start')">▶ Iniciar</button>
   </section>
 
   <section id="content">
-    <div class="tabs">
-      <button class="tab" data-tab="auto">Automatización<span class="n" id="n-auto-tab"></span></button>
+    <nav class="tabs">
+      <button class="tab" data-tab="auto">Piloto<span class="n" id="n-auto-tab"></span></button>
       <button class="tab" data-tab="people">Galería<span class="n" id="n-people"></span></button>
       <button class="tab" data-tab="new">Matches nuevos<span class="n" id="n-new"></span></button>
       <button class="tab" data-tab="swipes">Swipes<span class="n" id="n-swipes-tab"></span></button>
-      <input class="search" id="search" placeholder="Buscar por nombre">
-    </div>
-    <div class="notice" id="paused" hidden>
-      Claude está pausado porque llegó al límite de uso de tu suscripción.
-      <button id="btn-resume">Reanudar</button>
-    </div>
-    <div id="notices"></div>
+      <button class="tab" data-tab="activity">Actividad</button>
+      <button class="tab" data-tab="config">Configuración</button>
+    </nav>
+    <div class="toolbar" id="toolbar" hidden><input class="search" id="search" placeholder="Buscar por nombre"></div>
 
     <div id="view-auto">
       <details class="how">
         <summary>¿Cómo funciona?</summary>
         <ol>
-          <li><b>Conexión:</b> iniciá el navegador (paso 1) y traé tus chats.</li>
+          <li><b>Conexión:</b> tocá Iniciar arriba y el bot trae tus chats cada 15 minutos.</li>
           <li><b>Chats automatizados:</b> el bot no atiende todos tus chats, solo unos pocos a la vez. Entran solos
               según el interés que Claude les calcula, o los sumás vos con <b>Automatizar</b> en la galería.</li>
-          <li><b>Modo:</b> elegí qué hace Claude con esos chats (paso 2): nada, dejar borradores para que los apruebes
-              o escribir y enviar solo.</li>
-          <li><b>Control:</b> desde acá podés pausar un chat, fijarlo para que no rote, descartar un borrador antes de
-              que salga y ver todo lo que se envió.</li>
+          <li><b>Modo:</b> Manual (no escribe nada), Aprobación (deja borradores) o Piloto (escribe y envía solo).</li>
+          <li><b>Como una persona:</b> en modo Piloto contesta con una demora al azar y solo en tu horario de envío
+              (se cambia en Configuración). Hasta que sale, lo podés descartar.</li>
         </ol>
       </details>
       <div class="summary" id="auto-summary"></div>
 
-      <h3 class="sec" id="h-approve">Esperan tu aprobación<span class="n" id="n-approve"></span></h3>
+      <div class="panel-title" id="h-approve">[!!] Esperan tu aprobación<span class="n" id="n-approve"></span></div>
       <div class="alist" id="list-approve"></div>
 
-      <h3 class="sec">Chats automatizados<span class="n" id="n-auto"></span></h3>
+      <div class="panel-title">[IO] Chats automatizados<span class="n" id="n-auto"></span></div>
       <div class="alist" id="list-auto"></div>
 
-      <details class="paused" id="paused-box">
-        <summary>Pausados o rotados<span class="n" id="n-paused"></span></summary>
+      <details class="fold" id="paused-box">
+        <summary>[--] Pausados o rotados<span class="n" id="n-paused"></span></summary>
         <div class="alist" id="list-paused"></div>
       </details>
 
-      <h3 class="sec">Últimos envíos automáticos</h3>
+      <div class="panel-title">[TX] Últimos envíos automáticos</div>
       <div id="list-sent"></div>
     </div>
 
+    <div id="view-people" class="gallery" hidden></div>
+    <div id="view-new" class="gallery" hidden></div>
+
     <div id="view-swipes" hidden>
       <div class="summary" id="sw-summary"></div>
-      <div class="sw-grid">
-        <section class="panel">
+      <div class="grid" style="margin-top:14px">
+        <section class="box">
           <h3>Todos los días</h3>
           <p class="muted">El bot da likes solo, en tandas de hasta 20 con pausas al azar de 15 a 40 minutos, dentro del horario que elijas. Cuenta también los likes que des a mano.</p>
-          <label class="sw-switch"><input type="checkbox" id="sw-auto">Swipear todos los días</label>
-          <div class="fields">
+          <label class="check"><input type="checkbox" id="sw-auto"><span>Swipear todos los días</span></label>
+          <div class="fields" style="margin-top:10px">
             <div><label for="sw-dia">Likes por día</label><input id="sw-dia" type="number" min="1" max="300"></div>
             <div><label for="sw-desde">Desde (hora)</label><input id="sw-desde" type="number" min="0" max="23"></div>
             <div><label for="sw-hasta">Hasta (hora)</label><input id="sw-hasta" type="number" min="1" max="24"></div>
           </div>
           <button class="primary" id="sw-guardar">Guardar</button>
           <div class="sw-estado" id="sw-estado"></div>
-          <div class="help">Necesita el dashboard y el navegador abiertos. Usa el % de likes y la pausa de «Swipear ahora». Si Tinder te deja sin likes, espera a que se recarguen.</div>
+          <div class="help">Necesita el navegador abierto. Usa el % de likes y la pausa de «Swipear ahora». Si Tinder te deja sin likes, espera a que se recarguen.</div>
         </section>
 
-        <section class="panel">
+        <section class="box">
           <h3>Swipear ahora</h3>
           <p class="muted">Una tanda a mano. Corta sola al llegar a la cantidad de likes.</p>
           <div class="fields">
@@ -321,32 +339,125 @@
             <div><label for="sleep">Pausa (seg)</label><input id="sleep" type="number" min="1" max="60" step="0.5"></div>
           </div>
           <div class="row">
-            <button class="primary" id="btn-swipe">Swipear</button>
-            <button id="btn-stop">Detener</button>
+            <button class="primary" id="btn-swipe">▶ Swipear</button>
+            <button id="btn-stop">■ Detener</button>
           </div>
           <div class="help">% de likes: de cada 100 perfiles, a cuántos les da like (al resto, dislike). Pausa: segundos entre perfiles, varía al azar. Si el filtro físico está activo, decide él.</div>
         </section>
 
-        <section class="panel">
+        <section class="box">
           <h3>Filtro físico</h3>
           <p class="muted" id="sw-filtro"></p>
           <button id="sw-filtro-btn">Configurar</button>
         </section>
 
-        <section class="panel">
+        <section class="box">
           <h3>Últimos 7 días</h3>
           <div class="days" id="sw-dias"></div>
         </section>
       </div>
     </div>
 
-    <div id="view-people" class="gallery" hidden></div>
-    <div id="view-new" class="gallery" hidden></div>
+    <div id="view-activity" hidden>
+      <div class="panel-title">&gt; Registro</div>
+      <div class="panel-note">Lo que fue haciendo el bot: chats, borradores, envíos, swipes y errores.</div>
+      <div class="log" id="log"></div>
+    </div>
+
+    <div id="view-config" hidden>
+      <div class="cfg">
+        <section class="box">
+          <h3>Cómo escribe Claude</h3>
+          <div>
+            <label for="set-instructions">Instrucciones</label>
+            <textarea id="set-instructions" rows="7"></textarea>
+            <div class="help">Cómo escribir los mensajes: tono, qué buscar, qué evitar.</div>
+          </div>
+          <div>
+            <label for="set-sobre">Sobre vos</label>
+            <textarea id="set-sobre" rows="6" placeholder="Qué hacés, qué estudiás o en qué trabajás, dónde vivís, qué te gusta (música, juegos, deportes, comida), qué planes te gustan, cómo sos..."></textarea>
+            <div class="help">Claude lo usa para tener de qué hablar y para contestar cuando te preguntan por vos. Si está vacío, te dejo datos sacados de tus chats: <b>revisalos y guardá</b>. No se usa nada hasta que guardes.</div>
+          </div>
+          <div>
+            <label>Cómo escribís (aprendido de tus chats)</label>
+            <textarea id="set-guia" rows="7" readonly placeholder="Todavía no se armó: se genera sola con el primer borrador."></textarea>
+            <div class="help">Entra en cada borrador junto con ejemplos parecidos a la charla. <button type="button" id="btn-guia">Rehacerla</button></div>
+          </div>
+          <div>
+            <label for="set-model">Modelo</label>
+            <select id="set-model"></select>
+            <div class="help">Se usa para analizar a cada persona y escribir borradores. Haiku es el que menos gasta.</div>
+          </div>
+          <div>
+            <label>Estilo de los mensajes</label>
+            <div id="set-estilo"></div>
+            <div class="help">Se aplica a todo lo que se envía, también a lo que editás a mano.</div>
+          </div>
+        </section>
+
+        <section class="box">
+          <h3>Piloto automático</h3>
+          <div>
+            <label>Límites</label>
+            <div class="two">
+              <div><label for="set-max">Chats a la vez</label><input id="set-max" type="number" min="1" max="20"></div>
+              <div><label for="set-tope">Envíos por día</label><input id="set-tope" type="number" min="0" max="200"></div>
+            </div>
+            <div class="help">Al llegar al tope diario, los borradores quedan esperando tu aprobación.</div>
+          </div>
+          <div>
+            <label>Horario de envío</label>
+            <div class="two">
+              <div><label for="env-desde">Desde (hora)</label><input id="env-desde" type="number" min="0" max="23"></div>
+              <div><label for="env-hasta">Hasta (hora)</label><input id="env-hasta" type="number" min="1" max="24"></div>
+            </div>
+            <div class="help">Fuera de este horario no sale nada solo: las respuestas esperan y salen escalonadas cuando abre.</div>
+          </div>
+          <div>
+            <label>Demora antes de contestar (minutos)</label>
+            <div class="two">
+              <div><label for="env-dmin">Mínimo</label><input id="env-dmin" type="number" min="0" max="240"></div>
+              <div><label for="env-dmax">Máximo</label><input id="env-dmax" type="number" min="0" max="240"></div>
+            </div>
+            <div class="help">Cada respuesta automática sale después de un rato al azar entre estos dos valores, como alguien que vio el mensaje más tarde. Mientras espera la podés descartar.</div>
+          </div>
+          <div>
+            <label>Arranque</label>
+            <label class="check"><input type="checkbox" id="env-abrir"><span>Abrir Chrome solo al iniciar el dashboard</span></label>
+            <div class="help">Así los swipes diarios y el piloto corren sin tocar nada, apenas se levanta el dashboard.</div>
+          </div>
+        </section>
+
+        <section class="box">
+          <h3>Filtro físico al swipear</h3>
+          <label class="check"><input type="checkbox" id="fis-activo"><span>Usar el filtro al dar likes</span></label>
+          <div class="two" style="margin-top:10px">
+            <div><label for="fis-modo">Modo</label>
+              <select id="fis-modo">
+                <option value="sombra">Sombra (solo anota)</option>
+                <option value="activo">Activo (decide)</option>
+              </select></div>
+            <div><label for="fis-fotos">Fotos por perfil (1 a 9)</label>
+              <input id="fis-fotos" type="number" min="1" max="9"></div>
+          </div>
+          <table id="fis-attrs"></table>
+          <div class="help"><b>Quiero</b>: si no aparece en ninguna foto, no le da like. <b>Evitar</b>: si aparece en alguna, no le da like. Corre en tu máquina. Probalo primero en modo sombra.</div>
+        </section>
+
+        <section class="box" id="ig-panel" hidden>
+          <h3>Instagram</h3>
+          <div id="ig-text">No conectado</div>
+          <button id="btn-ig" style="margin-top:10px">Conectar Instagram</button>
+          <div class="help">Solo lectura. Se vinculan los chats de Instagram de las personas que te pasaron su @ por Tinder.</div>
+        </section>
+      </div>
+      <div class="cfg-foot"><button id="set-cancel">Descartar cambios</button><button class="primary" id="set-save">Guardar</button></div>
+    </div>
   </section>
-</main>
+</div>
 
 <div class="toast hide" id="toast" role="status" aria-live="polite">
-  <div class="t-head"><span class="spinner"></span><span>Cargando análisis</span><span id="toast-count"></span></div>
+  <div class="t-head"><span>Claude analizando</span><span id="toast-count"></span></div>
   <div class="bar"><div id="toast-bar"></div></div>
 </div>
 
@@ -359,63 +470,6 @@
   <div class="dlg-body"><div class="thread" id="chat-thread"></div></div>
 </dialog>
 
-<dialog id="settings-dlg">
-  <div class="dlg-head"><h3>Configuración</h3></div>
-  <div class="dlg-body">
-    <div>
-      <label for="set-instructions">Instrucciones para Claude</label>
-      <textarea id="set-instructions" rows="7"></textarea>
-      <div class="help">Cómo escribir los mensajes: tono, qué buscar, qué evitar.</div>
-    </div>
-    <div>
-      <label for="set-sobre">Sobre vos</label>
-      <textarea id="set-sobre" rows="6" placeholder="Qué hacés, qué estudiás o en qué trabajás, dónde vivís, qué te gusta (música, juegos, deportes, comida), qué planes te gustan, cómo sos..."></textarea>
-      <div class="help">Claude lo usa para tener de qué hablar y para contestar cuando te preguntan por vos. Solo lo menciona si viene al caso. Si está vacío, te dejo datos sacados de tus chats: <b>revisalos, borrá lo viejo o lo que no quieras que mencione, y guardá</b>. No se usa nada hasta que guardes.</div>
-    </div>
-    <div>
-      <label>Cómo escribís (aprendido de tus chats)</label>
-      <textarea id="set-guia" rows="8" readonly placeholder="Todavía no se armó: se genera sola con el primer borrador."></textarea>
-      <div class="help">Claude la armó leyendo tus mensajes. Entra en cada borrador junto con ejemplos parecidos a la charla. <button type="button" id="btn-guia">Rehacerla</button> si cambió tu forma de escribir o sumaste muchos chats.</div>
-    </div>
-    <div>
-      <label for="set-model">Modelo</label>
-      <select id="set-model"></select>
-      <div class="help">Se usa para analizar a cada persona y escribir borradores. Haiku es el que menos gasta.</div>
-    </div>
-    <div>
-      <label>Estilo de los mensajes</label>
-      <div id="set-estilo"></div>
-      <div class="help">Se aplica a todo lo que se envía, también a lo que editás a mano, y se le pide a Claude al escribir el borrador.</div>
-    </div>
-    <div>
-      <label>Filtro físico al swipear</label>
-      <label class="check"><input type="checkbox" id="fis-activo"><span>Usar el filtro al dar likes</span></label>
-      <div class="two">
-        <div><label for="fis-modo" style="font-size:11px">Modo</label>
-          <select id="fis-modo">
-            <option value="sombra">Sombra (solo anota, no decide)</option>
-            <option value="activo">Activo (decide like o dislike)</option>
-          </select></div>
-        <div><label for="fis-fotos" style="font-size:11px">Fotos a mirar por perfil (1 a 9)</label>
-          <input id="fis-fotos" type="number" min="1" max="9"></div>
-      </div>
-      <table id="fis-attrs" style="width:100%;margin-top:8px;font-size:12px"></table>
-      <div class="help">Para cada rasgo elegí: <b>Quiero</b> (si no aparece en ninguna foto, no le da like), <b>Evitar</b> (si aparece en alguna foto, no le da like) o <b>Da igual</b>. Le da like si cumple todos los que querés y ninguno de los que evitás. Corre en tu máquina y necesita el navegador iniciado. Probalo primero en modo sombra.</div>
-    </div>
-    <div>
-      <label>Límites de la automatización</label>
-      <div class="two">
-        <div><label for="set-max" style="font-size:11px">Chats automatizados a la vez</label>
-          <input id="set-max" type="number" min="1" max="20"></div>
-        <div><label for="set-tope" style="font-size:11px">Envíos automáticos por día</label>
-          <input id="set-tope" type="number" min="0" max="200"></div>
-      </div>
-      <div class="help">Al llegar al tope diario, los borradores quedan esperando tu aprobación. El modo (manual, con aprobación o automático) se cambia en el paso 2 del panel izquierdo.</div>
-    </div>
-  </div>
-  <div class="dlg-foot"><button id="set-cancel">Cancelar</button><button class="primary" id="set-save">Guardar</button></div>
-</dialog>
-
 <script>
 const $ = (id) => document.getElementById(id);
 let lastState = null;
@@ -423,13 +477,14 @@ let lastRendered = "";
 const photoIndex = new Map();
 const edits = new Map();
 
-const MODOS = {manual: "manual", aprobacion: "con aprobación", auto: "automático"};
+const MODOS = {manual: "manual", aprobacion: "aprobación", auto: "piloto"};
 const modoDe = (s) => s.auto_send ? "auto" : s.auto_drafts ? "aprobacion" : "manual";
+const TABS = ["auto", "people", "new", "swipes", "activity", "config"];
 
 function storage(op, key, value) {
   try { return op === "get" ? localStorage.getItem(key) : localStorage.setItem(key, value); } catch (e) { return null; }
 }
-let tab = ["auto", "people", "new", "swipes"].includes(storage("get", "tab")) ? storage("get", "tab") : "auto";
+let tab = TABS.includes(storage("get", "tab")) ? storage("get", "tab") : "auto";
 
 function el(tag, attrs = {}, ...children) {
   const node = document.createElement(tag);
@@ -449,6 +504,7 @@ function ago(iso) {
   if (min < 1440) return `hace ${Math.round(min / 60)} h`;
   return `hace ${Math.round(min / 1440)} d`;
 }
+const hhmm = (epoch) => new Date(epoch * 1000).toLocaleTimeString("es-AR", {hour: "2-digit", minute: "2-digit"});
 
 async function post(path, body) {
   if (document.activeElement && document.activeElement.tagName === "BUTTON") document.activeElement.blur();
@@ -456,6 +512,7 @@ async function post(path, body) {
   if (!res.ok) alert((await res.json().catch(() => ({}))).error || "Error");
   lastRendered = "";
   poll();
+  return res.ok;
 }
 
 const title = (p) => p.name + (p.age ? `, ${p.age}` : "");
@@ -468,7 +525,7 @@ function carousel(p, overlay) {
   const photos = safePhotos(p);
   const box = el("div", {class: "photo"});
   if (!photos.length) {
-    box.append(el("div", {class: "none"}, "Sin fotos (tocá «Actualizar chats»)"), ...overlay);
+    box.append(el("div", {class: "none"}, "Sin fotos (tocá «Actualizar»)"), ...overlay);
     return box;
   }
   let i = Math.min(photoIndex.get(p.id) || 0, photos.length - 1);
@@ -503,12 +560,20 @@ function interestBadge(p) {
 // ¿este borrador sale solo, sin que lo apruebe nadie?
 const willSend = (p, s) => s.auto_send && p.cupo === "activa" && s.status !== "apagado" && s.envios_hoy < s.envios_tope;
 
-function draftBox(p, firstMessage, autoSend = false) {
+function salidaTexto(p, s) {
+  if (!p.draft_send_at) return "Se envía solo";
+  const vencido = p.draft_send_at * 1000 <= Date.now();
+  if (!s.en_horario) return `Sale cuando abra el horario (${s.envio.envio_desde} h)`;
+  return vencido ? "Sale en instantes" : `Sale solo a las ${hhmm(p.draft_send_at)}`;
+}
+
+function draftBox(p, firstMessage, s) {
+  const autoSend = s ? willSend(p, s) : false;
   if (p.draft) {
     const ta = el("textarea", {});
     ta.value = edits.has(p.id) ? edits.get(p.id) : p.draft;
     ta.addEventListener("input", () => edits.set(p.id, ta.value));
-    const label = autoSend ? "Se envía solo en unos segundos · descartalo para cancelarlo"
+    const label = autoSend ? `${salidaTexto(p, s)} · descartalo para cancelarlo`
       : firstMessage ? "Primer mensaje sugerido" : "Respuesta sugerida";
     return el("div", {class: "draft"},
       el("div", {class: "lbl"}, label),
@@ -520,7 +585,7 @@ function draftBox(p, firstMessage, autoSend = false) {
           if (!confirm(`¿Enviar este mensaje a ${p.name}?\n\n${text}`)) return;
           edits.delete(p.id);
           post("/api/send", {match_id: p.id, text});
-        }}, autoSend ? "Enviar ahora" : "Enviar"),
+        }}, autoSend ? "Enviar ya" : "Enviar"),
         el("button", {onclick: () => { edits.delete(p.id); post(`/api/drafts/${p.id}/generate`); }}, "Otro"),
         el("button", {onclick: () => { edits.delete(p.id); post(`/api/drafts/${p.id}/discard`); }}, "Descartar")));
   }
@@ -555,7 +620,7 @@ function igChip(p) {
     `@${user}`, p.instagram.message_count ? ` · ${p.instagram.message_count} mensajes en IG` : "");
 }
 
-const openInTinder = (id) => el("a", {href: `https://tinder.com/app/messages/${id}`, target: "_blank", rel: "noopener"}, el("button", {}, "Abrir en Tinder"));
+const openInTinder = (id) => el("a", {href: `https://tinder.com/app/messages/${id}`, target: "_blank", rel: "noopener"}, el("button", {}, "Tinder ↗"));
 
 // --- automatización por chat ---
 
@@ -586,7 +651,7 @@ function citaText(c) {
 // qué está haciendo el bot con este chat ahora mismo
 function fase(p, s) {
   if (p.draft_pending) return ["Claude está escribiendo…", "busy"];
-  if (p.draft) return willSend(p, s) ? ["Borrador listo: se envía solo", "on"] : ["Borrador esperando tu aprobación", "warn"];
+  if (p.draft) return willSend(p, s) ? [salidaTexto(p, s), "on"] : ["Borrador esperando tu aprobación", "warn"];
   if (p.draft_error) return ["No se pudo escribir: " + p.draft_error, "warn"];
   if (p.analysis_status === "pendiente" || p.analysis_status === "analizando") return ["Claude la está analizando", "busy"];
   if (p.esperando || p.last_from_me === true) return ["Esperando que conteste", ""];
@@ -599,7 +664,6 @@ function personRow(p, s, extra = {}) {
   const photo = safePhotos(p)[0];
   const cita = citaText(p.cita);
   const score = p.analysis_status === "ok" && p.analysis ? p.analysis.interes : null;
-  const autoSend = willSend(p, s);
   return el("article", {class: "arow"},
     photo ? el("img", {class: "thumb", src: photo, alt: "", loading: "lazy", referrerpolicy: "no-referrer"})
           : el("div", {class: "thumb"}, (p.name || "?")[0]),
@@ -612,7 +676,7 @@ function personRow(p, s, extra = {}) {
       el("div", {class: "phase"},
         el("span", {class: "tag " + tono}, texto),
         cita ? el("span", {class: "tag on"}, cita) : null),
-      !extra.sinBorrador && (p.draft || p.draft_pending) ? el("div", {style: "margin-top:8px"}, draftBox(p, !p.message_count, autoSend)) : null,
+      !extra.sinBorrador && (p.draft || p.draft_pending) ? el("div", {style: "margin-top:8px"}, draftBox(p, !p.message_count, s)) : null,
       el("div", {class: "actions"},
         p.message_count ? el("button", {onclick: () => openChat(p)}, "Ver chat") : null,
         !p.draft && !p.draft_pending ? el("button", {onclick: () => post(`/api/drafts/${p.id}/generate`)}, "Sugerir ahora") : null,
@@ -649,10 +713,10 @@ function personCard(p) {
       cupoTag(p),
       igChip(p),
       ...about,
-      draftBox(p, false, lastState ? willSend(p, lastState) : false),
+      draftBox(p, false, lastState),
       el("div", {class: "actions"},
         el("button", {onclick: () => openChat(p)}, "Ver chat"),
-        !p.draft && !p.draft_pending ? el("button", {onclick: () => post(`/api/drafts/${p.id}/generate`)}, "Sugerir respuesta") : null,
+        !p.draft && !p.draft_pending ? el("button", {onclick: () => post(`/api/drafts/${p.id}/generate`)}, "Sugerir") : null,
         cupoButton(p),
         el("button", {onclick: () => post(`/api/reanalyze/${p.id}`)}, "Reanalizar"),
         openInTinder(p.id))));
@@ -665,7 +729,7 @@ function newMatchCard(p) {
       el("div", {}, el("div", {class: "name"}, title(p)), el("div", {class: "meta"}, "match " + ago(p.matched))),
       cupoTag(p),
       p.bio ? el("div", {class: "txt"}, p.bio) : el("div", {class: "pending"}, "Sin bio"),
-      draftBox(p, true, lastState ? willSend(p, lastState) : false),
+      draftBox(p, true, lastState),
       el("div", {class: "actions"},
         !p.draft && !p.draft_pending ? el("button", {onclick: () => post(`/api/drafts/${p.id}/generate`)}, "Sugerir primer mensaje") : null,
         cupoButton(p),
@@ -676,28 +740,26 @@ function renderGallery(view, list, card, emptyText) {
   view.replaceChildren(...(list.length ? list.map(card) : [el("div", {class: "empty"}, emptyText)]));
 }
 
-// --- pestaña Automatización ---
+// --- pestaña Piloto ---
 
 function renderAuto(s) {
   const byId = new Map([...s.people, ...s.new].map(p => [p.id, p]));
-  const modo = modoDe(s);
   const c = s.cupos;
 
   $("auto-summary").replaceChildren(
-    el("div", {class: "stat"}, el("b", {}, `${c.usados} de ${c.cupo}`), el("span", {}, "chats automatizados")),
-    el("div", {class: "stat"}, el("b", {}, `${s.envios_hoy} de ${s.envios_tope}`), el("span", {}, "envíos automáticos hoy")),
-    el("div", {class: "stat"}, el("b", {}, MODOS[modo]), el("span", {}, "modo actual")));
+    el("div", {class: "stat"}, el("b", {}, `${c.usados}/${c.cupo}`), el("span", {}, "chats automatizados")),
+    el("div", {class: "stat"}, el("b", {}, `${s.envios_hoy}/${s.envios_tope}`), el("span", {}, "envíos automáticos hoy")),
+    el("div", {class: "stat"}, el("b", {}, `${s.envio.envio_desde}–${s.envio.envio_hasta} h`),
+      el("span", {}, s.en_horario ? "horario de envío · abierto" : "horario de envío · cerrado")));
 
   // borradores que nadie va a mandar solos: esperan tu OK
   const aprobar = [...s.people, ...s.new].filter(p => p.draft && !willSend(p, s));
   $("h-approve").hidden = $("list-approve").hidden = !aprobar.length;
-  $("n-approve").textContent = aprobar.length;
+  $("n-approve").textContent = `· ${aprobar.length}`;
   $("list-approve").replaceChildren(...aprobar.map(p => personRow(p, s)));
 
-  $("n-auto").textContent = `${c.usados}/${c.cupo}`;
-  // el borrador de un chat que espera tu OK se muestra una sola vez, arriba
+  $("n-auto").textContent = `· ${c.usados}/${c.cupo}`;
   const enBandeja = new Set(aprobar.map(p => p.id));
-  // del último mensaje más reciente al más antiguo
   const ultimo = d => (byId.get(d.id) || {}).last_sent || "";
   const detalle = [...c.detalle].sort((a, b) => ultimo(b).localeCompare(ultimo(a)));
   $("list-auto").replaceChildren(...(detalle.length
@@ -705,10 +767,10 @@ function renderAuto(s) {
         {score: d.score, fijada: d.fijada, sinBorrador: enBandeja.has(d.id)}))
     : [el("div", {class: "empty"},
         "Todavía no hay chats automatizados. Entran solos al actualizar los chats (los de más interés primero) " +
-        "o los sumás vos con «Automatizar» en la galería.")]));
+        "o los sumás vos con «Automatizar» en la galería")]));
 
   $("paused-box").hidden = !c.pausadas.length;
-  $("n-paused").textContent = c.rotadas ? ` (${c.rotadas})` : "";
+  $("n-paused").textContent = c.pausadas.length ? ` · ${c.pausadas.length}` : "";
   $("list-paused").replaceChildren(...c.pausadas.map(d => {
     const p = byId.get(d.id) || {id: d.id, name: d.nombre};
     return el("article", {class: "arow"},
@@ -726,37 +788,41 @@ function renderAuto(s) {
     ? s.envios_ultimos.map(e => el("div", {class: "sent"},
         el("b", {}, e.nombre), el("span", {class: "t", title: e.texto}, e.texto),
         el("time", {}, ago(e.fecha))))
-    : [el("div", {class: "muted"}, "Todavía no se envió nada automáticamente.")]));
+    : [el("div", {class: "empty"}, "Todavía no se envió nada automáticamente")]));
 }
 
 // avisos que dependen del estado, arriba de las pestañas
 function renderNotices(s) {
   const modo = modoDe(s);
   const avisos = [];
+  if (s.llm_paused) avisos.push(["[!!] Claude está pausado: llegó al límite de uso o venció la sesión del CLI.", "Reanudar", () => post("/api/llm/resume")]);
   if (modo === "auto" && s.status === "apagado") {
-    avisos.push(["El modo automático está activo, pero el navegador está cerrado: no se envía nada hasta que lo inicies.", "Iniciar", () => post("/api/start")]);
-  }
-  if (modo === "auto" && s.envios_hoy >= s.envios_tope) {
-    avisos.push([`Llegaste al tope de ${s.envios_tope} envíos automáticos de hoy. Los borradores esperan tu aprobación.`]);
+    avisos.push(["[!!] El piloto está activo, pero el navegador está cerrado: no se envía nada hasta que lo inicies.", "Iniciar", () => post("/api/start")]);
   }
   if (s.swipes.cfg.auto && s.status === "apagado" && s.swipes.hoy.likes < s.swipes.cfg.por_dia) {
-    avisos.push(["Los swipes diarios están activos, pero el navegador está cerrado.", "Iniciar", () => post("/api/start")]);
+    avisos.push(["[!!] Los swipes diarios están activos, pero el navegador está cerrado.", "Iniciar", () => post("/api/start")]);
+  }
+  if (modo === "auto" && s.envios_hoy >= s.envios_tope) {
+    avisos.push([`[--] Llegaste al tope de ${s.envios_tope} envíos automáticos de hoy. Los borradores esperan tu aprobación.`, null, null, "info"]);
+  }
+  if (modo === "auto" && !s.en_horario && s.status !== "apagado") {
+    avisos.push([`[--] Fuera del horario de envío (${s.envio.envio_desde}–${s.envio.envio_hasta} h): las respuestas quedan programadas.`, null, null, "info"]);
   }
   const key = JSON.stringify(avisos.map(a => a[0]));
   if (key === renderNotices.last) return;  // no recrear los botones en cada consulta
   renderNotices.last = key;
-  $("notices").replaceChildren(...avisos.map(([txt, label, fn]) =>
-    el("div", {class: "notice"}, txt, label ? el("button", {onclick: fn}, label) : null)));
+  $("notices").replaceChildren(...avisos.map(([txt, label, fn, tipo]) =>
+    el("div", {class: "notice" + (tipo ? " " + tipo : "")}, txt, label ? el("button", {onclick: fn}, label) : null)));
 }
 
 function setTab(t) {
+  const cambio = t !== tab;
   tab = t;
   storage("set", "tab", t);
   document.querySelectorAll(".tabs .tab").forEach(b => b.classList.toggle("active", b.dataset.tab === t));
-  $("view-auto").hidden = t !== "auto";
-  $("view-people").hidden = t !== "people";
-  $("view-new").hidden = t !== "new";
-  $("view-swipes").hidden = t !== "swipes";
+  for (const v of TABS) $("view-" + v).hidden = v !== t;
+  $("toolbar").hidden = !["people", "new"].includes(t);
+  if (t === "config" && (cambio || !configCargada)) loadSettings();
 }
 
 // --- pestaña Swipes ---
@@ -776,10 +842,10 @@ function renderSwipes(s, on) {
   const meta = cfg.auto ? cfg.por_dia : null;
   const pct = meta ? Math.min(100, Math.round(hoy.likes / meta * 100)) : 0;
   $("sw-summary").replaceChildren(
-    el("div", {class: "stat"}, el("b", {}, meta ? `${hoy.likes} de ${meta}` : String(hoy.likes)),
+    el("div", {class: "stat"}, el("b", {}, meta ? `${hoy.likes}/${meta}` : String(hoy.likes)),
       el("span", {}, "likes hoy"), meta ? el("div", {class: "meter"}, el("div", {style: `width:${pct}%`})) : null),
     el("div", {class: "stat"}, el("b", {}, String(hoy.dislikes)), el("span", {}, "dislikes hoy")),
-    el("div", {class: "stat"}, el("b", {}, cfg.auto ? "activos" : "apagados"), el("span", {}, "swipes diarios")));
+    el("div", {class: "stat"}, el("b", {}, cfg.auto ? "ON" : "OFF"), el("span", {}, "swipes diarios")));
   $("n-swipes-tab").textContent = hoy.likes || "";
 
   $("sw-estado").hidden = !cfg.auto;
@@ -789,7 +855,7 @@ function renderSwipes(s, on) {
   const swipeando = s.status === "swipeando";
   $("btn-swipe").disabled = !on || swipeando;
   $("btn-stop").disabled = !swipeando;
-  $("btn-swipe").title = on ? "" : "Primero iniciá el navegador (paso 1)";
+  $("btn-swipe").title = on ? "" : "Primero iniciá el navegador";
 
   const f = s.fisico || {};
   $("sw-filtro").textContent = !f.activo ? "Apagado: los likes salen según el % de likes."
@@ -800,42 +866,49 @@ function renderSwipes(s, on) {
   const hoyIso = sw.historial.length ? sw.historial[sw.historial.length - 1].fecha : "";
   $("sw-dias").replaceChildren(...sw.historial.map(d => el("div", {class: "d" + (d.fecha === hoyIso ? " today" : ""),
       title: `${d.fecha}: ${d.likes} likes, ${d.dislikes} dislikes`},
-    el("span", {}, String(d.likes)),
-    el("div", {class: "bar", style: `height:${Math.round(d.likes / max * 60)}px`}),
+    el("b", {}, String(d.likes)),
+    el("div", {class: "bar", style: `height:${Math.round(d.likes / max * 70)}px`}),
     el("span", {}, DIAS[new Date(d.fecha + "T12:00").getDay()]))));
+}
+
+// --- barra de estado ---
+
+function statusText(s, on) {
+  const pend = s.pending_jobs ? ` · +${s.pending_jobs} en cola` : "";
+  const st = s.status;
+  if (!on) return "○ Navegador cerrado";
+  if (st === "abriendo navegador") return "● Abriendo Chrome…";
+  if (st === "esperando login") return "● Esperando login › iniciá sesión en el Chrome que se abrió";
+  if (st === "swipeando") return `● Swipeando › ${s.swipes.hoy.likes} likes hoy${pend}`;
+  if (st === "actualizando chats") return `● Actualizando chats${s.progress ? " " + s.progress : ""}${pend}`;
+  if (st === "listo") return `○ Conectado · chats ${s.last_refresh ? ago(s.last_refresh) : "sin traer"}${pend}`;
+  return `● ${st}${s.progress ? " " + s.progress : ""}${pend}`;
 }
 
 function render(s) {
   if (!s) return;
   const modo = modoDe(s);
   const on = s.status !== "apagado";
-  const busy = s.job && s.job !== "start" || s.status === "esperando login" || s.status === "abriendo navegador";
 
-  $("status").textContent = s.status + (s.progress ? ` ${s.progress}` : "") + (s.pending_jobs ? ` (+${s.pending_jobs})` : "");
-  $("status").className = "pill " + (!on ? "" : busy ? "busy" : "on");
-  $("modo-pill").textContent = "modo " + MODOS[modo];
-  $("modo-pill").className = "pill " + (modo === "auto" ? "on" : modo === "aprobacion" ? "busy" : "");
+  const c = s.cupos;
+  $("hero-pred").replaceChildren(
+    "Mensajes ", el("b", {}, `${s.envios_hoy}/${s.envios_tope}`),
+    " · Likes ", el("b", {}, s.swipes.cfg.auto ? `${s.swipes.hoy.likes}/${s.swipes.cfg.por_dia}` : String(s.swipes.hoy.likes)),
+    " · Chats ", el("b", {}, `${c.usados}/${c.cupo}`),
+    " · Modo ", el("b", {}, MODOS[modo]));
 
-  // paso 1: conexión
-  $("conn-dot").className = "dot" + (!on ? "" : busy ? " busy" : " on");
-  $("conn-text").textContent = !on ? "Navegador cerrado" : s.status === "esperando login" ? "Esperando que inicies sesión" : "Conectado a Tinder";
-  $("conn-help").textContent = !on
-    ? "Abre Chrome con Tinder. La primera vez, iniciá sesión a mano (Log in → Google)."
-    : s.status === "esperando login" ? "Iniciá sesión en la ventana de Chrome que se abrió."
-    : "Con «Actualizar chats» se traen los chats y matches nuevos.";
-  $("btn-start").disabled = on;
-  $("btn-refresh").disabled = !on;
-  $("btn-close").disabled = !on;
-  $("refreshed").textContent = s.last_refresh ? "Chats: " + ago(s.last_refresh) : "";
-
-  // paso 2: modo
-  document.querySelectorAll("input[name=modo]").forEach(r => r.checked = r.value === modo);
-  $("modo-help").textContent = modo === "auto"
-    ? `Hoy: ${s.envios_hoy} de ${s.envios_tope} mensajes enviados. Cada chat se puede pausar en la pestaña Automatización.`
-    : modo === "aprobacion" ? "Nada se envía sin que toques Enviar." : "Claude no escribe borradores solo; los pedís desde cada chat.";
+  $("status-line").textContent = statusText(s, on);
+  const main = $("btn-main");
+  if (!on) { main.textContent = "▶ Iniciar"; main.onclick = () => post("/api/start"); main.disabled = false; }
+  else if (s.status === "swipeando") { main.textContent = "■ Detener swipe"; main.onclick = () => post("/api/stop"); main.disabled = false; }
+  else {
+    main.textContent = "↻ Actualizar chats"; main.onclick = () => post("/api/refresh");
+    main.disabled = ["abriendo navegador", "esperando login", "actualizando chats"].includes(s.status);
+  }
+  $("btn-close").hidden = !on;
+  document.querySelectorAll("#modo-seg button").forEach(b => b.classList.toggle("on", b.dataset.modo === modo));
 
   $("ig-panel").hidden = !s.instagram_enabled;
-  $("ig-dot").className = "dot" + (s.instagram ? " on" : "");
   $("ig-text").textContent = s.instagram
     ? `Conectado · ${s.people.filter(p => p.instagram).length} personas vinculadas`
     : (s.status === "esperando login de Instagram" ? "Esperando que inicies sesión…" : "No conectado");
@@ -849,7 +922,7 @@ function render(s) {
   log.textContent = s.logs.join("\n");
   if (atBottom) log.scrollTop = log.scrollHeight;
 
-  // floating progress while claude works through the queue; hides when done or paused
+  // progreso mientras Claude analiza la cola; se oculta al terminar o si está pausado
   const done = s.people.filter(p => p.analysis_status === "ok" || p.analysis_status === "error").length;
   const loading = done < s.people.length && !s.llm_paused;
   $("toast").classList.toggle("hide", !loading);
@@ -858,15 +931,14 @@ function render(s) {
     $("toast-bar").style.width = `${Math.round(done / s.people.length * 100)}%`;
   }
 
-  // nothing stored yet: only point at the start button
+  // sin nada guardado: solo el botón de iniciar
   const nothing = !s.people.length && !s.new.length && s.status !== "actualizando chats";
   $("empty-state").hidden = !nothing;
   $("content").hidden = nothing;
 
-  $("n-auto-tab").textContent = s.cupos.usados;
+  $("n-auto-tab").textContent = c.usados;
   $("n-people").textContent = s.people.length;
   $("n-new").textContent = s.new.length;
-  $("paused").hidden = !s.llm_paused;
   renderNotices(s);
   setTab(tab);
 
@@ -874,17 +946,17 @@ function render(s) {
   const filter = (x) => !q || x.name.toLowerCase().includes(q);
   const people = s.people.filter(filter), fresh = s.new.filter(filter);
 
-  // rebuild the lists only when something changed, and never while a draft is being edited
-  const key = JSON.stringify([people, fresh, s.cupos, s.envios_ultimos, s.envios_hoy, s.envios_tope, modo, on, s.llm_paused]);
-  // solo frena si estás escribiendo en el borrador; un botón con foco (Descartar, Enviar) no cuenta
+  // se reconstruyen las listas solo si algo cambió, y nunca mientras editás un borrador
+  const minuto = Math.floor(Date.now() / 60000);  // refresca los "sale a las" y "hace X min"
+  const key = JSON.stringify([people, fresh, c, s.envios_ultimos, s.envios_hoy, s.envios_tope, modo, on, s.llm_paused, s.en_horario, minuto]);
   const active = document.activeElement;
   const editing = active && active.tagName === "TEXTAREA" && active.closest(".draft");
   if (key === lastRendered || editing) return;
   lastRendered = key;
   renderAuto(s);
   renderGallery($("view-people"), people, personCard,
-    s.status === "actualizando chats" ? "Cargando chats…" : "No hay chats. Iniciá el bot y tocá «Actualizar chats».");
-  renderGallery($("view-new"), fresh, newMatchCard, "No hay matches sin chat.");
+    s.status === "actualizando chats" ? "Cargando chats…" : "No hay chats. Iniciá el bot y tocá «Actualizar chats»");
+  renderGallery($("view-new"), fresh, newMatchCard, "No hay matches sin chat");
 }
 
 async function poll() {
@@ -892,18 +964,26 @@ async function poll() {
     lastState = await (await fetch("/api/state")).json();
     render(lastState);
   } catch (e) {
-    $("status").textContent = "sin conexión";
-    $("status").className = "pill";
+    $("status-line").textContent = "○ Sin conexión con el dashboard";
   }
 }
 
-async function openSettings() {
+// --- configuración (pestaña) ---
+
+let configCargada = false;
+let fisicoCfg = null;
+
+async function loadSettings() {
+  configCargada = true;
   const s = await (await fetch("/api/settings")).json();
   $("set-instructions").value = s.instructions;
   $("set-model").replaceChildren(...s.models.map(m => el("option", {value: m}, m)));
   $("set-model").value = s.model;
   $("set-max").value = s.max_activas;
   $("set-tope").value = s.tope_diario;
+  $("env-desde").value = s.envio_desde; $("env-hasta").value = s.envio_hasta;
+  $("env-dmin").value = s.demora_min; $("env-dmax").value = s.demora_max;
+  $("env-abrir").checked = !!s.abrir_al_iniciar;
   $("set-estilo").replaceChildren(...Object.entries(s.estilo_reglas).map(([name, desc]) =>
     el("label", {class: "check"},
       el("input", {type: "checkbox", "data-regla": name, ...(s.estilo[name] ? {checked: ""} : {})}),
@@ -922,11 +1002,9 @@ async function openSettings() {
     sel.value = s.fisico.excluir.includes(a) ? "evitar" : s.fisico.obligatorio.includes(a) ? "quiero" : "";
     return el("tr", {"data-attr": a}, el("td", {}, a), el("td", {style: "text-align:right"}, sel));
   }));
-  $("settings-dlg").showModal();
 }
 
 // settings.fisico completo: el servidor reemplaza el bloque entero, así que se reenvía lo que la UI no edita
-let fisicoCfg = null;
 function leerFisico() {
   const filas = [...document.querySelectorAll("#fis-attrs tr[data-attr]")];
   const con = valor => filas.filter(f => f.querySelector(".fis-eleccion").value === valor).map(f => f.dataset.attr);
@@ -937,42 +1015,41 @@ function leerFisico() {
 
 async function setModo(modo) {
   const s = lastState;
+  if (modo === modoDe(s)) return;
   if (modo === "auto" && !confirm(
-      `Modo automático: el bot va a escribir y enviar mensajes por Tinder sin que los apruebes, ` +
-      `hasta ${s.envios_tope} por día y solo en los ${s.cupos.cupo} chat(s) automatizados.\n\n` +
-      `Podés pausar cualquier chat o cambiar de modo cuando quieras. ¿Activarlo?`)) {
-    render(s);  // vuelve la selección al modo anterior
-    return;
-  }
+      `Modo piloto: el bot va a escribir y enviar mensajes por Tinder sin que los apruebes, ` +
+      `hasta ${s.envios_tope} por día, solo entre las ${s.envio.envio_desde} y las ${s.envio.envio_hasta} h ` +
+      `y en los ${s.cupos.cupo} chat(s) automatizados. Cada respuesta sale con una demora de ` +
+      `${s.envio.demora_min} a ${s.envio.demora_max} minutos.\n\n` +
+      `Podés pausar cualquier chat o cambiar de modo cuando quieras. ¿Activarlo?`)) return;
   await post("/api/settings", {auto_drafts: modo !== "manual", auto_send: modo === "auto"});
 }
 
 document.querySelectorAll(".tabs .tab").forEach(b => b.addEventListener("click", () => setTab(b.dataset.tab)));
-document.querySelectorAll("input[name=modo]").forEach(r => r.addEventListener("change", () => setModo(r.value)));
+document.querySelectorAll("#modo-seg button").forEach(b => b.addEventListener("click", () => setModo(b.dataset.modo)));
 $("search").addEventListener("input", () => { lastRendered = ""; render(lastState); });
-$("btn-start").onclick = () => post("/api/start");
-$("btn-refresh").onclick = () => post("/api/refresh");
 $("btn-close").onclick = () => post("/api/close");
-$("btn-stop").onclick = () => post("/api/stop");
-$("btn-resume").onclick = () => post("/api/llm/resume");
 $("btn-swipe").onclick = () => post("/api/swipe", {amount: $("amount").value, ratio: $("ratio").value, sleep: $("sleep").value});
+$("btn-stop").onclick = () => post("/api/stop");
 $("sw-guardar").onclick = () => post("/api/swipes/config", {auto: $("sw-auto").checked, por_dia: $("sw-dia").value,
                                                            desde: $("sw-desde").value, hasta: $("sw-hasta").value});
-$("sw-filtro-btn").onclick = openSettings;
-$("btn-settings").onclick = openSettings;
+$("sw-filtro-btn").onclick = () => setTab("config");
 $("btn-ig").onclick = () => post("/api/instagram/connect");
 $("chat-close").onclick = () => $("chat-dlg").close();
-$("set-cancel").onclick = () => $("settings-dlg").close();
+$("set-cancel").onclick = () => loadSettings();
 $("btn-guia").onclick = async () => {
   await post("/api/guia/regenerar");
   $("set-guia").value = "";
 };
 $("set-save").onclick = async () => {
   const estilo = Object.fromEntries([...document.querySelectorAll("#set-estilo input")].map(i => [i.dataset.regla, i.checked]));
-  await post("/api/settings", {instructions: $("set-instructions").value, model: $("set-model").value, estilo,
-                               max_activas: $("set-max").value, tope_diario: $("set-tope").value,
-                               fisico: leerFisico(), sobre_mi: $("set-sobre").value});
-  $("settings-dlg").close();
+  const ok = await post("/api/settings", {
+    instructions: $("set-instructions").value, model: $("set-model").value, estilo,
+    max_activas: $("set-max").value, tope_diario: $("set-tope").value,
+    fisico: leerFisico(), sobre_mi: $("set-sobre").value,
+    envio: {envio_desde: $("env-desde").value, envio_hasta: $("env-hasta").value,
+            demora_min: $("env-dmin").value, demora_max: $("env-dmax").value, abrir_al_iniciar: $("env-abrir").checked ? 1 : 0}});
+  if (ok) { $("set-save").textContent = "✓ Guardado"; setTimeout(() => $("set-save").textContent = "Guardar", 1800); }
 };
 
 poll();
